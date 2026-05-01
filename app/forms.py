@@ -24,9 +24,10 @@ class ProfileForm(FlaskForm):
     username = StringField('Username', validators=[InputRequired(), Length(min=8, max=35), regexp('^[A-Za-z][A-Za-z0-9_.]*$', 0, 'Usernames must have only letters, numbers, dots or underscores')])
     firstname= StringField('First Name', validators=[InputRequired(), Length(min=2, max=50), regexp('^[A-Za-z]+$', 0, 'First name must contain only letters')])
     lastname= StringField('Last Name', validators=[InputRequired(), Length(min=2, max=50), regexp('^[A-Za-z]+$', 0, 'Last name must contain only letters')])
-    bio = TextAreaField('Bio', validators=[Length(max=500)])
-    location = StringField('Location', validators=[Length(max=100)])
     age = IntegerField('Age', validators=[NumberRange(min=18, max=120)])
+    location = StringField('Location', validators=[Length(max=100)])
+    bio = TextAreaField('Bio', validators=[Length(max=500)])
+    interests = StringField('Interests', validators=[Length(max=200)])
 
     photo = FileField('Profile Picture', validators=[
     FileRequired(),

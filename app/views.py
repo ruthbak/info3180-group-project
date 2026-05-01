@@ -61,7 +61,7 @@ def register():
         if errors:
             return jsonify(errors=errors), 400
         
-        new_user = User(email=form.email.data, username=form.username.data, firstname=form.firstname.data, lastname=form.lastname.data, dob=form.dob.data, gender=form.gender.data, lookingfor=form.lookingfor.data, password=hashed_password, joined_at=datetime.datetime.utcnow(), last_seen=datetime.datetime.utcnow(), )
+        new_user = User(email=form.email.data, username=form.username.data, firstname=form.firstname.data, lastname=form.lastname.data, dob=form.dob.data, gender=form.gender.data, lookingfor=form.lookingfor.data, password=hashed_password, joined_at=datetime.datetime.utcnow(), last_seen=datetime.datetime.utcnow())
         db.session.add(new_user)
         db.session.commit()
 
@@ -100,6 +100,7 @@ def profile(current_user):
         current_user.bio = form.bio.data
         current_user.location = form.location.data
         current_user.age = form.age.data
+        current_user.interests = form.interests.data
 
         if form.photo.data:
             filename = secure_filename(form.photo.data.filename)
