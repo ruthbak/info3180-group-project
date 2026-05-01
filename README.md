@@ -7,7 +7,7 @@ A DATING APPLICATION web platform (called DriftDater) that allows registered use
 
 - [@DannyB67](https://github.com/DannyB67)
 - [@ruthbak](https://github.com/ruthbak)
-- [@sukanayna_hoo](https://github.com/sukanayna_hoo)
+- [@sukanayna](https://github.com/sukanayna)
 
 
 ## Tech Stack
@@ -33,10 +33,10 @@ A DATING APPLICATION web platform (called DriftDater) that allows registered use
 
 
 ## Roles
-- Project Manager [@sukanayna_hoo](https://github.com/sukanayna_hoo)(Oversees timeline, coordinates team efforts) 
+- Project Manager [@sukanayna](https://github.com/sukanayna)(Oversees timeline, coordinates team efforts) 
 - Backend Lead: [@DannyB67](https://github.com/DannyB67) (Manages API, database, security) 
 - Frontend Lead (Manages UI/UX, Vue 3 components) 
-- QA/Testing Lead: [@DannyB67](https://github.com/DannyB67) & [@sukanayna_hoo](https://github.com/sukanayna_hoo) (Manages testing, validation, documentation) 
+- QA/Testing Lead: [@DannyB67](https://github.com/DannyB67) & [@sukanayna](https://github.com/sukanayna) (Manages testing, validation, documentation) 
 - Deployment Lead (Manages deployments, configurations)
 ## Features
 
