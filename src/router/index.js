@@ -10,6 +10,41 @@ const router = createRouter({
       component: HomeView
     },
     {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue')
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue')
+    },
+    {
+      path: '/reports',
+      name: 'reports',
+      component: () => import('../views/ReportsView.vue')
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('../views/DashboardView.vue')
+    },
+    {
+      path: '/matches',
+      name: 'matches',
+      component: () => import('../views/MatchesView.vue')
+    },
+    {
+      path: '/messages',
+      name: 'messages',
+      component: () => import('../views/MessagesView.vue')
+    },
+    {
+      path: '/profile/edit',
+      name: 'profile-edit',
+      component: () => import('../views/ProfileEditView.vue')
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting
