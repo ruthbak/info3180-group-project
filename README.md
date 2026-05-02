@@ -8,7 +8,8 @@ A DATING APPLICATION web platform (called DriftDater) that allows registered use
 - [@DannyB67](https://github.com/DannyB67)
 - [@ruthbak](https://github.com/ruthbak)
 - [@sukanayna](https://github.com/sukanayna)
-
+- [@rashdill10](https://github.com/rashdill10)
+- [@Da-Bell](https://github.com/Da-Bell)
 
 ## Tech Stack
 
@@ -33,11 +34,11 @@ A DATING APPLICATION web platform (called DriftDater) that allows registered use
 
 
 ## Roles
-- Project Manager [@sukanayna](https://github.com/sukanayna)(Oversees timeline, coordinates team efforts) 
-- Backend Lead: [@DannyB67](https://github.com/DannyB67) (Manages API, database, security) 
-- Frontend Lead (Manages UI/UX, Vue 3 components) 
-- QA/Testing Lead: [@DannyB67](https://github.com/DannyB67) & [@sukanayna](https://github.com/sukanayna) (Manages testing, validation, documentation) 
-- Deployment Lead (Manages deployments, configurations)
+- Project Manager: [@sukanayna](https://github.com/sukanayna)(Oversees timeline, coordinates team efforts) 
+- Backend Lead: [@DannyB67](https://github.com/DannyB67)(Manages API, database, security) 
+- Frontend Lead:[@ruthbak](https://github.com/ruthbak) & [@Da-Bell](https://github.com/Da-Bell) & [@sukanayna](https://github.com/sukanayna) (Manages UI/UX, Vue 3 components) 
+- QA/Testing Lead: [@DannyB67](https://github.com/DannyB67) & [@sukanayna](https://github.com/sukanayna) & [@rashdill10](https://github.com/rashdill10) (Manages testing, validation, documentation) 
+- Deployment Lead: @all (Manages deployments, configurations)
 ## Features
 
 1. USER AUTHENTICATION & PROFILE MANAGEMENT 
