@@ -16,7 +16,7 @@ class users(db.Model):
     def __init__(self, username, email, password_hash, visibility, joined_at, updated_at, last_seen):
         self.username = username
         self.email = email
-        self.password_hash = generate_password_hash(password_hash)
+        self.password_hash = password_hash
         self.visibility = visibility
         #Think about how to set the joined_at, updated_at, and last_seen fields when a user is created and when they log in. You may want to use the datetime module to set these fields to the current time instead of doing it with the form.
         self.joined_at = joined_at
@@ -41,24 +41,26 @@ class users(db.Model):
     def __repr__(self):
         return '<User {}>'.format(self.username)
     
-    class user_profile(db.Model):
-        __tablename__ = 'user_profile'
-        id = db.Column(db.Integer, primary_key=True)
-        user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-        first_name = db.Column(db.String(64), index=True)
-        last_name = db.Column(db.String(64), index=True)
-        dob = db.Column(db.Date, index=True)
-        description = db.Column(db.String(256), index=True)
+class user_profile(db.Model):
+    __tablename__ = 'user_profile'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    first_name = db.Column(db.String(64), index=True)
+    last_name = db.Column(db.String(64), index=True)
+    dob = db.Column(db.Date, index=True)
+    gender = db.Column(db.String(16), index=True)
+    description = db.Column(db.String(256), index=True)
 
-        def __init__(self, user_id, first_name, last_name, dob, description):
-            self.user_id = user_id
-            self.first_name = first_name
-            self.last_name = last_name
-            self.dob = dob
-            self.description = description
+    def __init__(self, user_id, first_name, last_name, dob, gender, description):
+        self.user_id = user_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.dob = dob
+        self.gender = gender
+        self.description = description
 
-        def __repr__(self):
-            return '<User Profile {}>'.format(self.first_name)
+    def __repr__(self):
+        return '<User Profile {}>'.format(self.first_name)
         
 class user_location(db.Model):
     __tablename__ = 'user_location'
@@ -83,12 +85,14 @@ class user_preferences(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     min_age = db.Column(db.Integer, index=True)
     max_age = db.Column(db.Integer, index=True)
+    gender_preference = db.Column(db.String(16), index=True)
     max_distance = db.Column(db.Integer, index=True)
 
-    def __init__(self, user_id, min_age, max_age, max_distance):
+    def __init__(self, user_id, min_age, max_age, gender_preference, max_distance):
         self.user_id = user_id
         self.min_age = min_age
         self.max_age = max_age
+        self.gender_preference = gender_preference
         self.max_distance = max_distance
 
     def __repr__(self):
@@ -98,7 +102,7 @@ class user_looking_for(db.Model):
     __tablename__ = 'user_looking_for'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    looking_for = db.Column(db.String(32), index=True)
+    looking_for = db.Column(db.String(32), index=True) # firendship, dating, networking, etc.
 
     def __init__(self, user_id, looking_for):
         self.user_id = user_id
@@ -176,7 +180,7 @@ class matches(db.Model):
         self.user1_id = user1_id
         self.user2_id = user2_id
         self.matched_at = matched_at
-        self.status = status
+        self.status = status # status can be 'active', 'unmatched', 'blocked', etc.
 
     def __repr__(self):
         return '<Match {}>'.format(self.id)
@@ -203,7 +207,7 @@ class messages(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.id'))
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    message_text = db.Column(db.String(512), index=True)
+    message_text = db.Column(db.Text)
     sent_at = db.Column(db.DateTime, index=True)
     is_read = db.Column(db.Boolean, index=True)
 
