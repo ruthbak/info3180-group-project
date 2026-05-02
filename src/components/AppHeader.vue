@@ -1,9 +1,12 @@
 <template>
   <header>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <nav class="navbar navbar-expand-lg fixed-top dd-navbar">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">VueJS with Flask</a>
-        <button
+        <RouterLink to="/" class="navbar-brand dd-brand">
+          <img src="@/assets/logo.svg" alt="DriftDater logo" class="dd-logo" />
+          Drift<span>Dater</span>
+        </RouterLink>       
+      <button
           class="navbar-toggler"
           type="button"
           data-bs-toggle="collapse"
@@ -17,10 +20,18 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <RouterLink to="/" class="nav-link active">Home</RouterLink>
+              <RouterLink to="/" class="nav-link dd-link">Home</RouterLink>
             </li>
             <li class="nav-item">
-              <RouterLink class="nav-link" to="/about">About</RouterLink>
+              <RouterLink to="/reports" class="nav-link dd-link">View Reports</RouterLink>
+            </li>
+            <li class="nav-item">
+              <RouterLink to="/login" class="nav-link dd-link">Login</RouterLink>
+            </li>
+            <li class="nav-item">
+              <RouterLink to="/register" class="btn dd-btn-primary btn-sm ms-2">
+                Register
+              </RouterLink>
             </li>
           </ul>
         </div>
@@ -34,5 +45,52 @@ import { RouterLink } from "vue-router";
 </script>
 
 <style>
-/* Add any component specific styles here */
+.dd-navbar {
+  background: rgba(255, 250, 247, 0.93);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(192, 57, 90, 0.15);
+}
+.dd-brand {
+  font-family: 'Georgia', serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #C0395A !important;
+  text-decoration: none;
+}
+.dd-brand span { font-style: italic; color: #E8563A; }
+.dd-link {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #6B3A48 !important;
+  border-radius: 100px;
+  padding: 0.4rem 0.9rem !important;
+  transition: background 0.2s, color 0.2s;
+}
+.dd-link:hover, .dd-link.router-link-active {
+  background: #FDEEF2;
+  color: #C0395A !important;
+}
+.dd-btn-primary {
+  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%);
+  color: #fff !important;
+  border: none;
+  border-radius: 100px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.dd-btn-primary:hover { opacity: 0.88; color: #fff !important; }
+.navbar-toggler { border-color: rgba(192, 57, 90, 0.35); }
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(192,57,90,0.8)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.dd-logo {
+  width: 28px;
+  height: 28px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  filter: invert(27%) sepia(60%) saturate(800%) hue-rotate(310deg) brightness(90%);
+}
 </style>
