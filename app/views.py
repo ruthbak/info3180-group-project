@@ -73,8 +73,8 @@ def register():
 
         new_profile = user_profile(
             user_id=new_user.id,
-            first_name=form.first_name.data,
-            last_name=form.last_name.data,
+            first_name=form.firstname.data,
+            last_name=form.lastname.data,
             dob=form.dob.data,
             gender=form.gender.data,
             description=""
@@ -83,7 +83,7 @@ def register():
 
         new_looking_for = user_looking_for(
             user_id=new_user.id,
-            looking_for=form.looking_for.data
+            looking_for=form.lookingfor.data
         )
         db.session.add(new_looking_for)
 
