@@ -3,7 +3,7 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
-class User(db.Model, UserMixin):
+class user(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True, nullable=False)
@@ -31,7 +31,7 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return '<User {}>'.format(self.username)
 
-class UserProfile(db.Model):
+class user_profile(db.Model):
     __tablename__ = 'user_profile'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False, unique=True)
@@ -44,7 +44,7 @@ class UserProfile(db.Model):
     def __repr__(self):
         return '<User Profile {}>'.format(self.first_name)
         
-class UserLocation(db.Model):
+class user_location(db.Model):
     __tablename__ = 'user_location'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False, unique=True)
@@ -55,7 +55,7 @@ class UserLocation(db.Model):
     def __repr__(self):
         return '<User Location {}>'.format(self.location_name)
     
-class UserPreferences(db.Model):
+class user_preferences(db.Model):
     __tablename__ = 'user_preferences'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False, unique=True)
@@ -67,7 +67,7 @@ class UserPreferences(db.Model):
     def __repr__(self):
         return '<User Preference {}>'.format(self.min_age)
     
-class UserLookingFor(db.Model):
+class user_looking_for(db.Model):
     __tablename__ = 'user_looking_for'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False, unique=True)
@@ -76,7 +76,7 @@ class UserLookingFor(db.Model):
     def __repr__(self):
         return '<User Looking For {}>'.format(self.looking_for)
     
-class Hobby(db.Model):
+class hobby(db.Model):
     __tablename__ = 'hobby'
     id = db.Column(db.Integer, primary_key=True)
     hobby_name = db.Column(db.String(64), unique=True, index=True)
@@ -84,13 +84,13 @@ class Hobby(db.Model):
     def __repr__(self):
         return '<Hobby {}>'.format(self.hobby_name)
 
-class UserHobbies(db.Model):
+class user_hobbies(db.Model):
     __tablename__ = 'user_hobbies'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     hobby_id = db.Column(db.Integer, db.ForeignKey('hobby.id'))
 
-class UserPhoto(db.Model):
+class user_photo(db.Model):
     __tablename__ = 'user_photo'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
@@ -100,7 +100,7 @@ class UserPhoto(db.Model):
     def __repr__(self):
         return '<User Photo {}>'.format(self.photo_url)
     
-class Swipe(db.Model):
+class swipe(db.Model):
     __tablename__ = 'swipe'
     id = db.Column(db.Integer, primary_key=True)
     swiper_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
@@ -111,7 +111,7 @@ class Swipe(db.Model):
     def __repr__(self):
         return '<Swipe {}>'.format(self.action)
     
-class Match(db.Model):
+class match(db.Model):
     __tablename__ = 'matches'
     id = db.Column(db.Integer, primary_key=True)
     user1_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
@@ -122,7 +122,7 @@ class Match(db.Model):
     def __repr__(self):
         return '<Match {}>'.format(self.id)
     
-class Conversation(db.Model):
+class conversation(db.Model):
     __tablename__ = 'conversations'
     id = db.Column(db.Integer, primary_key=True)
     user1_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
@@ -134,7 +134,7 @@ class Conversation(db.Model):
     def __repr__(self):
         return '<Conversation {}>'.format(self.id)
     
-class Message(db.Model):
+class message(db.Model):
     __tablename__ = 'messages'
     id = db.Column(db.Integer, primary_key=True)
     conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.id'), index=True)
@@ -146,7 +146,7 @@ class Message(db.Model):
     def __repr__(self):
         return '<Message {}>'.format(self.message_text)
     
-class Favorite(db.Model):
+class favorite(db.Model):
     __tablename__ = 'favorites'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
