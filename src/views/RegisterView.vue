@@ -2,40 +2,46 @@
   <div>
     <h2>Register</h2>
 
-    <form id="RegisterForm" @submit.prevent="registerForm">
+    <form @submit.prevent="registerForm">
 
-  <input name="email" v-model="form.email" />
-  <input name="username" v-model="form.username" />
-  <input name="firstname" v-model="form.firstname" />
-  <input name="lastname" v-model="form.lastname" />
-  <input name="dob" type="date" v-model="form.dob" />
+      <input name="email" v-model="form.email" placeholder="Email" />
 
-  <select name="gender" v-model="form.gender">
-    <option value="male">Male</option>
-    <option value="female">Female</option>
-  </select>
+      <input name="username" v-model="form.username" placeholder="Username" />
 
-  <select name="lookingfor" v-model="form.lookingfor">
-    <option value="dating">Dating</option>
-    <option value="friendship">Friendship</option>
-    <option value="relationship">Relationship</option>
-  </select>
+      <input name="firstname" v-model="form.firstname" placeholder="First Name" />
 
-  <input name="password" type="password" v-model="form.password" />
+      <input name="lastname" v-model="form.lastname" placeholder="Last Name" />
 
-  <!-- CSRF token (important for Flask-WTF) -->
-  <input type="hidden" name="csrf_token" :value="csrfToken" />
+      <input name="dob" type="date" v-model="form.dob" />
 
-  <button type="submit">Register</button>
-</form>
+      <select name="gender" v-model="form.gender">
+        <option disabled value="">Select Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+
+      <select name="lookingfor" v-model="form.lookingfor">
+        <option disabled value="">Looking For</option>
+        <option value="dating">Dating</option>
+        <option value="friendship">Friendship</option>
+        <option value="relationship">Relationship</option>
+      </select>
+
+      <input name="password" type="password" v-model="form.password" placeholder="Password" />
+
+      <button type="submit">Register</button>
+    </form>
+
   </div>
 </template>
 
 <script setup>
 import { reactive } from "vue"
 import { ref, onMounted } from "vue";
-
-
+onMounted(() => { 
+getCsrfToken(); 
+}); 
+let csrf_token = ref(""); 
 const form = reactive({
   email: "",
   username: "",
@@ -46,26 +52,42 @@ const form = reactive({
   lookingfor: "",
   password: ""
 })
+function getCsrfToken() { 
+fetch('/api/v1/csrf-token') 
+.then((response) => response.json()) 
+.then((data) => { 
+console.log(data); 
+csrf_token.value = data.csrf_token; 
+}) 
+}
+async function registerForm() {
+  try {
+    // Build FormData from Vue state
+    const form_data = new FormData()
 
-function registerForm() {
-  console.log(form) // you already have endpoint, so plug fetch/axios here
-  form = RegistrationForm(meta={'csrf': False})
-  let registerForm = document.getElementById('RegisterForm'); 
-  let form_data = new FormData(registerForm); 
-    fetch('/api/v1/register', {
-        method: 'POST',
-        body: form_data
-    }).then(function(response) {
-            if (!response.ok) {
-                return response.text().then(text => {
-            throw new Error(text || "Request failed");
-        });
+    for (let key in form) {
+      form_data.append(key, form[key])
+    }
+    console.log("Submitting form data:", Object.fromEntries(form_data.entries()))
+    const response = await fetch('/api/v1/register', {
+      method: 'POST',
+      body: form_data,
+      headers: {
+                "X-CSRFToken": csrf_token.value 
             }
-            return response.json();
-        }).then(function (data) {
-            console.log("user registered successfully:", data);
-        }).catch(function (error) {
-            console.error("Error submitting form:", error);
-        });
+    })
+    console.log("Received response:", response)
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("Validation errors:", data.errors)
+      return
+    }
+
+    console.log("User registered successfully:", data)
+
+  } catch (error) {
+    console.error("Error submitting form:", error)
+  }
 }
 </script>

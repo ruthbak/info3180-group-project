@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from app.forms import RegistrationForm, LoginForm, ProfileForm
 from app.models import *
 from functools import wraps
-from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
 from werkzeug.security import generate_password_hash, check_password_hash
 import os, datetime, jwt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
@@ -32,7 +32,7 @@ def token_required(f):
             return jsonify({'message': 'Token is missing!'}), 401
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            _current_user = users.query.filter_by(id=data['user_id']).first()
+            _current_user = user.query.filter_by(id=data['user_id']).first()
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
         return f(_current_user, *args, **kwargs)
@@ -44,22 +44,22 @@ def index():
 
 @app.route('/api/v1/register', methods=['POST'])
 def register():
-    form = RegistrationForm()
+    form = RegistrationForm() 
     if form.validate_on_submit():
         errors = []
 
-        if db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar() is not None:
+        if db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar() is not None:
             errors.append("Email already registered")
 
-        if db.session.execute(db.select(users).filter_by(username=form.username.data)).scalar() is not None:
+        if db.session.execute(db.select(user).filter_by(username=form.username.data)).scalar() is not None:
             errors.append("Username already taken")
 
         if errors:
             return jsonify(errors=errors), 400
 
-        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        hashed_password = generate_password_hash(form.password.data, method='pbkdf2:sha256')
 
-        new_user = users(
+        new_user = user(
             email=form.email.data,
             username=form.username.data,
             password_hash=hashed_password,         
@@ -90,14 +90,16 @@ def register():
         db.session.commit()
         return jsonify(message="Successfully created user account."), 201
     else:
-        return jsonify(errors=form_errors(form)), 400
+        e1 = "FORM DATA:", request.form
+        e2 = "FORM ERRORS:", form.errors
+        return jsonify(errors=form_errors(form), form_data=e1, form_errors=e2), 400
 
 
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar()
+        user = db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar()
         
         if user and check_password_hash(user.password_hash, form.password.data):
             token = jwt.encode(
@@ -114,6 +116,9 @@ def login():
     else:
         return jsonify(errors=form_errors(form)), 400
 
+@app.route('/api/v1/csrf-token', methods=['GET']) 
+def get_csrf(): 
+    return jsonify({'csrf_token': generate_csrf()}) 
 
 @app.route('/api/v1/auth/logout', methods=['POST'])
 @token_required  
@@ -181,7 +186,7 @@ def profile(current_user):
 
 
 @app.route('/api/v1/users', methods=['GET'])
-def users():
+def get_users():
     query = request.args.get('query')
     if not query:
         return jsonify(message="Query parameter is required"), 400
@@ -192,9 +197,9 @@ def users():
 
     results = (
         db.session.query(
-            users.id,
-            users.username,
-            users.joined_at,
+            user.id,
+            user.username,
+            user.joined_at,
             user_profile.first_name,
             user_profile.last_name,
             user_profile.dob,
@@ -205,10 +210,10 @@ def users():
             user_preferences.gender_preference,
             user_preferences.max_distance,
         )
-        .join(user_profile,user_profile.user_id==users.id)
-        .join(user_location,user_location.user_id==users.id)
-        .join(user_preferences,user_preferences.user_id==users.id)
-        .filter(users.username.ilike(f'%{query}%'))
+        .join(user_profile,user_profile.user_id==user.id)
+        .join(user_location,user_location.user_id==user.id)
+        .join(user_preferences,user_preferences.user_id==user.id)
+        .filter(user.username.ilike(f'%{query}%'))
         .all()
     )
 
@@ -245,7 +250,7 @@ def users():
 
 @app.route('/api/v1/users/<int:id>', methods=['GET'])
 def get_user(id):
-    user = db.session.execute(db.select(users).filter_by(id=id)).scalar()
+    user = db.session.execute(db.select(user).filter_by(id=id)).scalar()
     if not user:
         return jsonify(message="User not found"), 404
     return jsonify(user={
@@ -323,9 +328,9 @@ def search():
     
     result = (
         db.session.query(
-            users.id,
-            users.username,
-            users.joined_at,
+            user.id,
+            user.username,
+            user.joined_at,
             user_profile.first_name,
             user_profile.last_name,
             user_profile.dob,
@@ -336,10 +341,10 @@ def search():
             user_preferences.gender_preference,
             user_preferences.max_distance,
         )
-        .join(user_profile,user_profile.user_id==users.id)
-        .join(user_location,user_location.user_id==users.id)
-        .join(user_preferences,user_preferences.user_id==users.id)
-        .filter(users.username == username)   # exact match, case-sensitive
+        .join(user_profile,user_profile.user_id==user.id)
+        .join(user_location,user_location.user_id==user.id)
+        .join(user_preferences,user_preferences.user_id==user.id)
+        .filter(user.username == username)   # exact match, case-sensitive
         .first()
     )
 
