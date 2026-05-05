@@ -8,9 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.config.from_object(Config) 
+app.config.from_object(Config)
 csrf = CSRFProtect(app)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
 
 from app import views
