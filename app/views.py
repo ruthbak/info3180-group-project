@@ -6,15 +6,16 @@ This file creates your application.
 """
 
 from app import app, db
-from flask import render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory
+from flask import request, jsonify, send_file, session, flash, send_from_directory, url_for, redirect
 from werkzeug.utils import secure_filename
 from app.forms import RegistrationForm, LoginForm, ProfileForm
-from app.models import User
+from app.models import *
 from functools import wraps
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.security import generate_password_hash, check_password_hash
 import os, datetime, jwt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from datetime import date
 
 
 ###
@@ -25,16 +26,16 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization'].split(" ")[1]  # Assuming Bearer token
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.filter_by(id=data['user_id']).first()
+            _current_user = users.query.filter_by(id=data['user_id']).first()
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
-        return f(current_user, *args, **kwargs)
+        return f(_current_user, *args, **kwargs)
     return decorated
 
 @app.route('/')
@@ -43,98 +44,371 @@ def index():
 
 @app.route('/api/v1/register', methods=['POST'])
 def register():
-    form= RegistrationForm()
+    form = RegistrationForm()
     if form.validate_on_submit():
-        hashed_password = generate_password_hash(form.password.data, method='sha256')
-        email = form.email.data
-
         errors = []
-        if db.session.execute(db.select(User).filter_by(email=email)).scalar() is not None:
-            errors.append("Email already registered")
-            flash("Email already registered. Please use a different email.")
 
-        username = form.username.data
-        if db.session.execute(db.select(User).filter_by(username=username)).scalar() is not None:
+        if db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar() is not None:
+            errors.append("Email already registered")
+
+        if db.session.execute(db.select(users).filter_by(username=form.username.data)).scalar() is not None:
             errors.append("Username already taken")
-            flash("Username already taken. Please choose a different username.")
 
         if errors:
             return jsonify(errors=errors), 400
-        
-        new_user = User(email=form.email.data, username=form.username.data, firstname=form.firstname.data, lastname=form.lastname.data, dob=form.dob.data, gender=form.gender.data, lookingfor=form.lookingfor.data, password=hashed_password, joined_at=datetime.datetime.utcnow(), last_seen=datetime.datetime.utcnow())
-        db.session.add(new_user)
-        db.session.commit()
 
+        hashed_password = generate_password_hash(form.password.data, method='sha256')
+
+        new_user = users(
+            email=form.email.data,
+            username=form.username.data,
+            password_hash=hashed_password,         
+            visibility=True,
+            joined_at=datetime.datetime.utcnow(),
+            updated_at=datetime.datetime.utcnow(),
+            last_seen=datetime.datetime.utcnow()
+        )
+        db.session.add(new_user)
+        db.session.flush()  
+
+        new_profile = user_profile(
+            user_id=new_user.id,
+            first_name=form.first_name.data,
+            last_name=form.last_name.data,
+            dob=form.dob.data,
+            gender=form.gender.data,
+            description="",
+            photo=url_for('static', filename='default.png')
+        )
+        db.session.add(new_profile)
+
+        new_looking_for = user_looking_for(
+            user_id=new_user.id,
+            looking_for=form.looking_for.data
+        )
+        db.session.add(new_looking_for)
+
+        db.session.commit()
         return jsonify(message="Successfully created user account."), 201
     else:
-        return jsonify(errors=form_errors(form)), redirect(url_for('register')), 400
-    
+        return jsonify(errors=form_errors(form)), 400
+
+
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.execute(db.select(User).filter_by(email=form.email.data)).scalar()
-        if user and check_password_hash(user.password, form.password.data):
-            token = jwt.encode({'user_id': user.id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)}, app.config['SECRET_KEY'], algorithm="HS256")
+        user = db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar()
+        
+        if user and check_password_hash(user.password_hash, form.password.data):
+            token = jwt.encode(
+                {
+                    'user_id': user.id,
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+                },
+                app.config['SECRET_KEY'],
+                algorithm="HS256"
+            )
             return jsonify(token=token), 200
         else:
             return jsonify(message="Invalid email or password"), 401
-    return render_template('login.html', form=form)
-    
+    else:
+        return jsonify(errors=form_errors(form)), 400
+
 @app.route('/api/v1/auth/logout', methods=['POST'])
-@login_required
-@token_required
+@token_required  
 def logout(current_user):
-    logout_user()
+    logout_user()  # This will clear the session cookie, but since we're using JWTs, the client should just discard the token
     return jsonify(message="Successfully logged out"), 200
 
 @app.route('/api/v1/profile', methods=['POST'])
-@login_required
-@token_required
+@token_required  
 def profile(current_user):
     form = ProfileForm()
     if form.validate_on_submit():
-        current_user.username = form.username.data
-        current_user.firstname = form.firstname.data
-        current_user.lastname = form.lastname.data
-        current_user.bio = form.bio.data
-        current_user.location = form.location.data
-        current_user.age = form.age.data
-        current_user.interests = form.interests.data
+    
+        existing_profile = db.session.execute(db.select(user_profile).filter_by(user_id=current_user.id)).scalar()
+
+        if existing_profile:
+            if form.first_name.data:
+                existing_profile.first_name = form.first_name.data
+            if form.last_name.data:
+                existing_profile.last_name = form.last_name.data
+            if form.description.data:
+                existing_profile.description = form.description.data
+        else:
+            # Create a new profile if one doesn't exist yet
+            existing_profile = user_profile(
+                user_id=current_user.id,
+                first_name=form.first_name.data or "",
+                last_name=form.last_name.data or "",
+                dob=form.dob.data,
+                gender=form.gender.data or "",
+                description=form.description.data or ""
+            )
+            db.session.add(existing_profile)
 
         if form.photo.data:
             filename = secure_filename(form.photo.data.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             form.photo.data.save(filepath)
-            current_user.photo = filename
 
-        db.session.commit()
-        return jsonify(message="Profile updated successfully"), 200
-    else:
-        return jsonify(errors=form_errors(form)), 400
+            # Check if the user already has a photo
+            existing_photo = db.session.execute(db.select(user_photo).filter_by(user_id=current_user.id)).scalar()
+
+            if existing_photo:
+                # Delete the old file from disk before overwriting
+                old_filepath = os.path.join(app.config['UPLOAD_FOLDER'], existing_photo.photo_url)
+                if os.path.exists(old_filepath):
+                    os.remove(old_filepath)
+
+                # Update the existing record instead of inserting a new one
+                existing_photo.photo_url = filename
+                existing_photo.uploaded_at = datetime.datetime.utcnow()
+            else:
+                # No photo yet — create the first one
+                new_photo = user_photo(
+                    user_id=current_user.id,
+                    photo_url=filename,
+                    uploaded_at=datetime.datetime.utcnow()
+                )
+            db.session.add(new_photo)
+            db.session.commit()
+            return jsonify(message="Profile updated successfully"), 200
+        else:
+            return jsonify(errors=form_errors(form)), 400
+
+
+@app.route('/api/v1/users', methods=['GET'])
+def users():
+    query = request.args.get('query')
+    if not query:
+        return jsonify(message="Query parameter is required"), 400
+
+    def calculate_age(dob):
+        today = date.today()
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    results = (
+        db.session.query(
+            users.id,
+            users.username,
+            users.joined_at,
+            user_profile.first_name,
+            user_profile.last_name,
+            user_profile.dob,
+            user_profile.gender,
+            user_location.location_name,
+            user_preferences.min_age,
+            user_preferences.max_age,
+            user_preferences.gender_preference,
+            user_preferences.max_distance,
+        )
+        .join(user_profile,user_profile.user_id==users.id)
+        .join(user_location,user_location.user_id==users.id)
+        .join(user_preferences,user_preferences.user_id==users.id)
+        .filter(users.username.ilike(f'%{query}%'))
+        .all()
+    )
+
+    if not results:
+        return jsonify(message="No users found matching the query"), 404
+
+    user_cards = []
+    for row in results:
+        looking_for_rows = db.session.execute(db.select(user_looking_for).filter_by(user_id=row.id)).scalars().all()
+        looking_for_list = [lf.looking_for for lf in looking_for_rows]
+
+        photo = db.session.execute(db.select(user_photo).filter_by(user_id=row.id)).scalars()
+
+        user_cards.append({
+            "username":row.username,
+            "first_name":row.first_name,
+            "last_name":row.last_name,
+            "age":calculate_age(row.dob) if row.dob else None,
+            "gender":row.gender,
+            "location":row.location_name,
+            "preferences":{
+                "min_age":row.min_age,
+                "max_age":row.max_age,
+                "gender_preference":row.gender_preference,
+                "max_distance":row.max_distance
+            },
+            "looking_for":looking_for_list,  
+            "photo":photo,          
+            "joined_at":row.joined_at.strftime('%Y-%m-%d')
+        })
+
+    return jsonify(users=user_cards), 200
+
+
+@app.route('/api/v1/users/<int:id>', methods=['GET'])
+def get_user(id):
+    user = db.session.execute(db.select(users).filter_by(id=id)).scalar()
+    if not user:
+        return jsonify(message="User not found"), 404
+    return jsonify(user={
+        'username':   user.username,
+        'email':      user.email,
+        'visibility': user.visibility,
+        'joined_at':  user.joined_at,
+        'updated_at': user.updated_at,
+        'last_seen':  user.last_seen
+    }), 200
+
+
+@app.route('/api/v1/profile/<int:id>', methods=['GET'])
+def get_profile(id):
+    profile = db.session.execute(db.select(user_profile).filter_by(user_id=id)).scalar()
+    if not profile:
+        return jsonify(message="Profile not found"), 404
+    return jsonify(profile={
+        'first_name': profile.first_name, 
+        'last_name': profile.last_name,
+        'dob': profile.dob.strftime('%Y-%m-%d') if profile.dob else None,
+        'gender': profile.gender,
+        'description': profile.description   
+    }), 200
+
+
+@app.route('/api/v1/location', methods=['GET'])
+@token_required  
+def get_location(current_user):
+    locations = db.session.execute(db.select(user_location).filter_by(user_id=current_user.id)).scalars().all()
+
+    if not locations:
+        return jsonify(message="No location found"), 404
+
+    location_list = []
+    for loc in locations:
+        location_list.append({
+            'location_name':loc.location_name,
+            'latitude':loc.latitude,
+            'longitude':loc.longitude
+        })
+    return jsonify(locations=location_list), 200
+
+@app.route('/api/v1/location', methods=['POST'])
+@token_required  
+def update_location(current_user):
+    data = request.get_json()
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    location_name = data.get('location_name', '')
+
+    if latitude is None or longitude is None:
+        return jsonify(message="Latitude and longitude are required"), 400
+
+    new_location = user_location(
+        user_id=current_user.id,
+        location_name=location_name,
+        latitude=latitude,
+        longitude=longitude
+    )
+    db.session.add(new_location)
+    db.session.commit()
+    return jsonify(message="Location updated successfully"), 200
+
+
+@app.route('/api/v1/search', methods=['GET'])
+def search():
+    username = request.args.get('username')
+    if not username:
+        return jsonify(message="Username parameter is required"), 400
+
+    def calculate_age(dob):
+        today = date.today()
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
     
-@app.route('/users', methods=['GET'])
-def get_users():
-    users = User.query.all()
-    output = []
-    for user in users:
-        user_data = {
-            'username': user.username,
-            'firstname': user.firstname,
-            'lastname': user.lastname,
-            'dob': user.dob.isoformat(),
-            'gender': user.gender,
-            'lookingfor': user.lookingfor,
-            'bio': user.bio,
-            'location': user.location,
-            'age': user.age,
-            'photo': user.photo
-        }
-        output.append(user_data)
-    return jsonify(users=output), 200
+    result = (
+        db.session.query(
+            users.id,
+            users.username,
+            users.joined_at,
+            user_profile.first_name,
+            user_profile.last_name,
+            user_profile.dob,
+            user_profile.gender,
+            user_location.location_name,
+            user_preferences.min_age,
+            user_preferences.max_age,
+            user_preferences.gender_preference,
+            user_preferences.max_distance,
+        )
+        .join(user_profile,user_profile.user_id==users.id)
+        .join(user_location,user_location.user_id==users.id)
+        .join(user_preferences,user_preferences.user_id==users.id)
+        .filter(users.username == username)   # exact match, case-sensitive
+        .first()
+    )
+
+    if not result:
+        return jsonify(message="User not found"), 404
+
+    # Fetch looking_for list for this user
+    looking_for_rows = db.session.execute(db.select(user_looking_for).filter_by(user_id=result.id)).scalars().all()
+    looking_for_list = [lf.looking_for for lf in looking_for_rows]
+
+    # Fetch photo for this user
+    photo = db.session.execute(db.select(user_photo).filter_by(user_id=result.id)).scalars()
+
+    user_card = {
+        "username":result.username,
+        "first_name":result.first_name,
+        "last_name":result.last_name,
+        "age":calculate_age(result.dob) if result.dob else None,
+        "gender":result.gender,
+        "location":result.location_name,
+        "preferences":{
+            "min_age":result.min_age,
+            "max_age":result.max_age,
+            "gender_preference":result.gender_preference,
+            "max_distance":result.max_distance
+        },
+        "looking_for":looking_for_list,
+        "photos":photo,
+        "joined_at":result.joined_at.strftime('%Y-%m-%d')
+    }
+
+    return jsonify(user=user_card), 200
 
 
-###
+@app.route('/api/v1/matches', methods=['GET'])
+@token_required
+def get_matches(current_user):
+    current_user_preferences = db.session.query(user_preferences).filter_by(user_id=current_user.id).scalar()
+    other_users = db.session.query(user_preferences).filter(user.id != current_user.id).all()
+    current_user_lf = db.session.query(user_looking_for).filter_by(user_id=current_user.id).scalar()
+    other_users_lf = db.session.query(user_looking_for).filter(user.id != current_user.id).all()
+    matches = []
+    for other in other_users and other_lf in other_users_lf:
+        if other.min_age <= current_user_preferences.age <= other.max_age and other.gender_preferences == current_user_preferences.gender_preferences and current_user_lf == other_lf:
+            matches.append(other.user_id)
+    return jsonify(matches=matches), 200
+
+def matches_data(matches):
+    match_data = []
+    for match_id in matches:
+        user = db.session.query(users).filter_by(id=match_id).scalar()
+        profile = db.session.query(user_profile).filter_by(user_id=match_id).scalar()
+        location = db.session.query(user_location).filter_by(user_id=match_id).scalar()
+        photo = db.session.query(user_photo).filter_by(user_id=match_id).scalar()
+
+        match_data.append({
+            "username":user.username,
+            "first_name":profile.first_name,
+            "last_name":profile.last_name,
+            "age":calculate_age(profile.dob) if profile.dob else None,
+            "gender":profile.gender,
+            "location":location.location_name,
+            "photos":[photo] if photo else [url_for('static', filename='default.png')]
+        })
+    return match_data
+
+def get_match(match_data):
+    for match in match_data:
+        return jsonify(match=match), 200
+
 # The functions below should be applicable to all Flask apps.
 ###
 
