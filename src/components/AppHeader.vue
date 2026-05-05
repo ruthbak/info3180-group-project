@@ -18,13 +18,7 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto">
-            <li class="nav-item">
-              <RouterLink to="/" class="nav-link dd-link">Home</RouterLink>
-            </li>
-            <li class="nav-item">
-              <RouterLink to="/reports" class="nav-link dd-link">View Reports</RouterLink>
-            </li>
+          <ul class="navbar-nav ms-auto">
             <li class="nav-item">
               <RouterLink to="/login" class="nav-link dd-link">Login</RouterLink>
             </li>
