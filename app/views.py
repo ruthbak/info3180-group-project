@@ -380,9 +380,13 @@ def get_matches(current_user):
     other_users = db.session.query(user_preferences).filter(user.id != current_user.id).all()
     current_user_lf = db.session.query(user_looking_for).filter_by(user_id=current_user.id).scalar()
     other_users_lf = db.session.query(user_looking_for).filter(user.id != current_user.id).all()
+    cu_hobby = db.session.query(user_hobbies).filter_by(user_id=current_user.id).scalar()
+    other_users_hobbies = db.session.query(user_hobbies).filter(user.id != current_user.id).all()
+    current_user_location = db.session.query(user_location).filter_by(user_id=current_user.id).scalar()
+
     matches = []
-    for other in other_users and other_lf in other_users_lf:
-        if other.min_age <= current_user_preferences.age <= other.max_age and other.gender_preferences == current_user_preferences.gender_preferences and current_user_lf == other_lf:
+    for other in other_users and other_lf in other_users_lf and other_hobby in other_users_hobbies:
+        if other.min_age <= current_user_preferences.age <= other.max_age and other.gender_preferences == current_user_preferences.gender_preferences and current_user_lf in other_lf and other.max_distance >= haversine(current_user_location.latitude, current_user_location.longitude, other_location.latitude, other_location.longitude) and other_hobby in cu_hobby:
             matches.append(other.user_id)
     return jsonify(matches=matches), 200
 
