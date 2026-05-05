@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os, datetime, jwt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from datetime import date
+import math
 
 
 ###
@@ -37,6 +38,11 @@ def token_required(f):
             return jsonify({'message': 'Token is invalid!'}), 401
         return f(_current_user, *args, **kwargs)
     return decorated
+
+
+def calculate_age(dob):
+    today = date.today()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 @app.route('/')
 def index():
@@ -184,10 +190,8 @@ def users():
     query = request.args.get('query')
     if not query:
         return jsonify(message="Query parameter is required"), 400
-
-    def calculate_age(dob):
-        today = date.today()
-        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    
+    calculate_age = lambda dob: date.today().year - dob.year - ((date.today().month, date.today().day) < (dob.month, dob.day)) if dob else None
 
     results = (
         db.session.query(
@@ -316,10 +320,8 @@ def search():
     if not username:
         return jsonify(message="Username parameter is required"), 400
 
-    def calculate_age(dob):
-        today = date.today()
-        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-    
+    calculate_age = lambda dob: date.today().year - dob.year - ((date.today().month, date.today().day) < (dob.month, dob.day)) if dob else None
+
     result = (
         db.session.query(
             users.id,
@@ -372,46 +374,155 @@ def search():
 
     return jsonify(user=user_card), 200
 
+def haversine(lat1, lon1, lat2, lon2):
+    """Returns distance in kilometres between two coordinates."""
+    R = 6371  # Earth's radius in km
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
 
 @app.route('/api/v1/matches', methods=['GET'])
 @token_required
 def get_matches(current_user):
-    current_user_preferences = db.session.query(user_preferences).filter_by(user_id=current_user.id).scalar()
-    other_users = db.session.query(user_preferences).filter(user.id != current_user.id).all()
-    current_user_lf = db.session.query(user_looking_for).filter_by(user_id=current_user.id).scalar()
-    other_users_lf = db.session.query(user_looking_for).filter(user.id != current_user.id).all()
-    cu_hobby = db.session.query(user_hobbies).filter_by(user_id=current_user.id).scalar()
-    other_users_hobbies = db.session.query(user_hobbies).filter(user.id != current_user.id).all()
-    current_user_location = db.session.query(user_location).filter_by(user_id=current_user.id).scalar()
+
+    #Fetch current user's data (all in 4 focused queries)
+
+    cu_profile = db.session.execute(db.select(user_profile).filter_by(user_id=current_user.id)).scalar()
+
+    cu_prefs = db.session.execute(db.select(user_preferences).filter_by(user_id=current_user.id)).scalar()
+
+    cu_location = db.session.execute(db.select(user_location).filter_by(user_id=current_user.id)).scalar()
+
+    cu_looking_for = {
+        row.looking_for for row in db.session.execute(db.select(user_looking_for).filter_by(user_id=current_user.id)).scalars().all()
+    }
+
+    cu_hobbies = {
+        row.hobby_id for row in db.session.execute(db.select(user_hobbies).filter_by(user_id=current_user.id)).scalars().all()
+    }
+
+    cu_age = calculate_age(cu_profile.dob) if cu_profile and cu_profile.dob else None
+
+    # Guard condition; can't match without these
+    if not cu_profile or not cu_prefs or not cu_location or not cu_age:
+        return jsonify(message="Complete your profile, preferences, and location before matching"), 400
+
+    #Fetch all other users with their profile + preferences + location in one join
+
+    candidates = (
+        db.session.query(
+            users.id,
+            users.username,
+            user_profile.first_name,
+            user_profile.last_name,
+            user_profile.dob,
+            user_profile.gender,
+            user_preferences.min_age,
+            user_preferences.max_age,
+            user_preferences.gender_preference,
+            user_preferences.max_distance,
+            user_location.location_name,
+            user_location.latitude,
+            user_location.longitude,
+        )
+        .join(user_profile, user_profile.user_id==users.id)
+        .join(user_preferences, user_preferences.user_id==users.id)
+        .join(user_location, user_location.user_id==users.id)
+        .filter(users.id!=current_user.id)
+        .all()
+    )
+
+    if not candidates:
+        return jsonify(matches=[]), 200
+
+    # Collect all candidate user IDs for batch lookups
+    candidate_ids = [c.id for c in candidates]
+
+    # Batch fetch looking_for for all candidates — avoids N+1
+    all_looking_for = db.session.execute(db.select(user_looking_for).filter(user_looking_for.user_id.in_(candidate_ids))).scalars().all()
+
+    # Batch fetch hobbies for all candidates — avoids N+1
+    all_hobbies = db.session.execute(db.select(user_hobbies).filter(user_hobbies.user_id.in_(candidate_ids))).scalars().all()
+
+    # Batch fetch photos for all candidates — avoids N+1
+    all_photos = db.session.execute(db.select(user_photo).filter(user_photo.user_id.in_(candidate_ids))).scalars().all()
+
+    # Build lookup dicts keyed by user_id for O(1) access
+    looking_for_map = {}   # { user_id: {"dating", "friendship", ...} }
+    for lf in all_looking_for:
+        looking_for_map.setdefault(lf.user_id, set()).add(lf.looking_for)
+
+    hobbies_map = {} # { user_id: {hobby_id, ...} }
+    for h in all_hobbies:
+        hobbies_map.setdefault(h.user_id, set()).add(h.hobby_id)
+
+    photos_map = {} # { user_id: photo_url }
+    for p in all_photos:
+        photos_map[p.user_id] = p.photo_url if p.photo_url else url_for('static', filename='default.png')
+
+    # --- Run matching logic ---
 
     matches = []
-    for other in other_users and other_lf in other_users_lf and other_hobby in other_users_hobbies:
-        if other.min_age <= current_user_preferences.age <= other.max_age and other.gender_preferences == current_user_preferences.gender_preferences and current_user_lf in other_lf and other.max_distance >= haversine(current_user_location.latitude, current_user_location.longitude, other_location.latitude, other_location.longitude) and other_hobby in cu_hobby:
-            matches.append(other.user_id)
-    return jsonify(matches=matches), 200
+    for c in candidates:
+        c_age = calculate_age(c.dob) if c.dob else None
+        if not c_age:
+            continue
 
-def matches_data(matches):
-    match_data = []
-    for match_id in matches:
-        user = db.session.query(users).filter_by(id=match_id).scalar()
-        profile = db.session.query(user_profile).filter_by(user_id=match_id).scalar()
-        location = db.session.query(user_location).filter_by(user_id=match_id).scalar()
-        photo = db.session.query(user_photo).filter_by(user_id=match_id).scalar()
+        # 1. Current user's age must fall within candidate's preferred age range
+        if not (c.min_age <= cu_age <= c.max_age):
+            continue
 
-        match_data.append({
-            "username":user.username,
-            "first_name":profile.first_name,
-            "last_name":profile.last_name,
-            "age":calculate_age(profile.dob) if profile.dob else None,
-            "gender":profile.gender,
-            "location":location.location_name,
-            "photos":[photo] if photo else [url_for('static', filename='default.png')]
+        # 2. Candidate's age must fall within current user's preferred age range
+        if not (cu_prefs.min_age <= c_age <= cu_prefs.max_age):
+            continue
+
+        # 3. Gender preference — each must match the other's gender
+        if c.gender_preference != cu_profile.gender:
+            continue
+        if cu_prefs.gender_preference != c.gender:
+            continue
+
+        # 4. Distance must be within BOTH users' max_distance
+        distance = haversine(
+            cu_location.latitude, cu_location.longitude,
+            c.latitude, c.longitude
+        )
+        if distance > cu_prefs.max_distance or distance > c.max_distance:
+            continue
+
+        # 5. Looking_for in common
+        c_looking_for = looking_for_map.get(c.id, set())
+        if not cu_looking_for.intersection(c_looking_for):
+            continue
+
+        # 6. At least one hobby in common
+        c_hobbies = hobbies_map.get(c.id, set())
+        if not cu_hobbies.intersection(c_hobbies):
+            continue
+
+        # If all criteria passed — build the user card
+        matches.append({
+            "user_id": c.id,
+            "username": c.username,
+            "first_name": c.first_name,
+            "last_name": c.last_name,
+            "age": c_age,
+            "gender":c.gender,
+            "location": c.location_name,
+            "distance_km": round(distance, 1),
+            "looking_for": list(c_looking_for),
+            "photo": photos_map.get(c.id) or url_for('static', filename='default.png'),
+            "common_looking_for": list(cu_looking_for.intersection(c_looking_for)),
+            "common_hobbies": list(cu_hobbies.intersection(c_hobbies))
         })
-    return match_data
 
-def get_match(match_data):
-    for match in match_data:
-        return jsonify(match=match), 200
+    # Sort by closest distance first
+    matches.sort(key=lambda x: x['distance_km'])
+
+    return jsonify(matches=matches, total=len(matches)), 200
 
 # The functions below should be applicable to all Flask apps.
 ###
