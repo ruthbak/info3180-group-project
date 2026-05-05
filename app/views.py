@@ -99,12 +99,12 @@ def register():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar()
+        userr = db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar()
         
-        if user and check_password_hash(user.password_hash, form.password.data):
+        if userr and check_password_hash(userr.password_hash, form.password.data):
             token = jwt.encode(
                 {
-                    'user_id': user.id,
+                    'user_id': userr.id,
                     'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
                 },
                 app.config['SECRET_KEY'],
@@ -187,9 +187,6 @@ def profile(current_user):
 
 @app.route('/api/v1/users', methods=['GET'])
 def get_users():
-    query = request.args.get('query')
-    if not query:
-        return jsonify(message="Query parameter is required"), 400
 
     def calculate_age(dob):
         today = date.today()
@@ -203,17 +200,9 @@ def get_users():
             user_profile.first_name,
             user_profile.last_name,
             user_profile.dob,
-            user_profile.gender,
-            user_location.location_name,
-            user_preferences.min_age,
-            user_preferences.max_age,
-            user_preferences.gender_preference,
-            user_preferences.max_distance,
+            user_profile.gender
         )
-        .join(user_profile,user_profile.user_id==user.id)
-        .join(user_location,user_location.user_id==user.id)
-        .join(user_preferences,user_preferences.user_id==user.id)
-        .filter(user.username.ilike(f'%{query}%'))
+        .join(user_profile, user_profile.user_id == user.id)
         .all()
     )
 
@@ -221,28 +210,37 @@ def get_users():
         return jsonify(message="No users found matching the query"), 404
 
     user_cards = []
-    for row in results:
-        looking_for_rows = db.session.execute(db.select(user_looking_for).filter_by(user_id=row.id)).scalars().all()
-        looking_for_list = [lf.looking_for for lf in looking_for_rows]
 
-        photo = db.session.execute(db.select(user_photo).filter_by(user_id=row.id)).scalars()
+    for row in results:
+        #  Get "looking_for" values
+        looking_for_rows = (
+            db.session.execute(
+                db.select(user_looking_for).filter_by(user_id=row.id)
+            )
+            .scalars()
+            .all()
+        )
+        looking_for_list = [lf.looking_for for lf in looking_for_rows][0]
+
+        #  Get photos and convert to list of filenames (or URLs)
+        photo_rows = (
+            db.session.execute(
+                db.select(user_photo).filter_by(user_id=row.id)
+            )
+            .scalars()
+            .all()
+        )
+        photo_list = [p.filename for p in photo_rows]  # adjust field if needed
 
         user_cards.append({
-            "username":row.username,
-            "first_name":row.first_name,
-            "last_name":row.last_name,
-            "age":calculate_age(row.dob) if row.dob else None,
-            "gender":row.gender,
-            "location":row.location_name,
-            "preferences":{
-                "min_age":row.min_age,
-                "max_age":row.max_age,
-                "gender_preference":row.gender_preference,
-                "max_distance":row.max_distance
-            },
-            "looking_for":looking_for_list,  
-            "photo":photo,          
-            "joined_at":row.joined_at.strftime('%Y-%m-%d')
+            "username": row.username,
+            "first_name": row.first_name,
+            "last_name": row.last_name,
+            "age": calculate_age(row.dob) if row.dob else None,
+            "gender": row.gender,
+            "looking_for": looking_for_list,
+            "photo": photo_list,
+            "joined_at": row.joined_at.strftime('%Y-%m-%d') if row.joined_at else None
         })
 
     return jsonify(users=user_cards), 200
@@ -250,16 +248,16 @@ def get_users():
 
 @app.route('/api/v1/users/<int:id>', methods=['GET'])
 def get_user(id):
-    user = db.session.execute(db.select(user).filter_by(id=id)).scalar()
-    if not user:
+    userr = db.session.execute(db.select(user).filter_by(id=id)).scalar()
+    if not userr:
         return jsonify(message="User not found"), 404
     return jsonify(user={
-        'username':   user.username,
-        'email':      user.email,
-        'visibility': user.visibility,
-        'joined_at':  user.joined_at,
-        'updated_at': user.updated_at,
-        'last_seen':  user.last_seen
+        'username':   userr.username,
+        'email':      userr.email,
+        'visibility': userr.visibility,
+        'joined_at':  userr.joined_at,
+        'updated_at': userr.updated_at,
+        'last_seen':  userr.last_seen
     }), 200
 
 
