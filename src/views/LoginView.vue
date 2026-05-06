@@ -150,7 +150,7 @@ async function handleLogin() {
 }
 </script>
  
-<style scoped>
+<style>
 .dd-login-page {
   background: linear-gradient(135deg, #fff6ee 0%, #fdeef2 50%, #fff0e8 100%);
   min-height: 100vh;
@@ -185,30 +185,7 @@ async function handleLogin() {
   color: #9E6373;
   margin: 0;
 }
- 
-.dd-label {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #6B3A48;
-  margin-bottom: 0.4rem;
-  display: block;
-}
- 
-.dd-input {
-  border: 1.5px solid rgba(192, 57, 90, 0.20);
-  border-radius: 10px;
-  padding: 0.65rem 1rem;
-  font-size: 0.93rem;
-  color: #2A1018;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
- 
-.dd-input:focus {
-  border-color: #C0395A;
-  box-shadow: 0 0 0 3px rgba(192, 57, 90, 0.12);
-  outline: none;
-}
- 
+  
 .dd-input-error {
   border-color: #E8563A !important;
 }
@@ -220,49 +197,9 @@ async function handleLogin() {
   display: block;
 }
  
-.dd-alert-error {
-  background: #FDEEF2;
-  border: 1px solid rgba(192, 57, 90, 0.25);
-  color: #C0395A;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  padding: 0.75rem 1rem;
-}
- 
-.dd-btn-submit {
-  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%);
-  color: #fff;
-  border: none;
-  border-radius: 100px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.75rem;
-  box-shadow: 0 6px 20px rgba(192, 57, 90, 0.28);
-  transition: opacity 0.2s, transform 0.15s;
-}
- 
-.dd-btn-submit:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  color: #fff;
-}
- 
-.dd-btn-submit:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
- 
 .dd-login-footer {
   font-size: 0.88rem;
   color: #9E6373;
 }
- 
-.dd-link-rose {
-  color: #C0395A;
-  font-weight: 600;
-  text-decoration: none;
-  transition: opacity 0.2s;
-}
- 
-.dd-link-rose:hover { opacity: 0.75; }
+  
 </style>
