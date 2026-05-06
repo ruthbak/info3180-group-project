@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import { isLoggedIn } from "@/services/auth"
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -61,4 +62,20 @@ const router = createRouter({
   ]
 })
 
+router.beforeEach((to, from, next) => {
+  const protectedRoutes = [
+    "dashboard",
+    "matches",
+    "messages",
+    "profile-edit",
+    "reports"
+  ]
+  const requiresAuth = protectedRoutes.includes(to.name)
+
+  if (requiresAuth && !isLoggedIn()) {
+    next("/login") //  block access
+  } else {
+    next() //  allow
+  }
+})
 export default router

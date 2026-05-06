@@ -20,7 +20,7 @@
             </div>
  
             <!-- Form -->
-            <form @submit.prevent="handleLogin">
+            <form @submit.prevent="handleLogin" id="login_form">
  
               <!-- Email -->
               <div class="mb-3">
@@ -28,7 +28,8 @@
                 <input
                   type="email"
                   id="email"
-                  v-model="form.email"
+                  name="email"
+                  v-model="email"
                   class="form-control dd-input"
                   :class="{ 'dd-input-error': errors.email }"
                   placeholder="your@email.com"
@@ -42,7 +43,8 @@
                 <input
                   type="password"
                   id="password"
-                  v-model="form.password"
+                  name="password"
+                  v-model="password"
                   class="form-control dd-input"
                   :class="{ 'dd-input-error': errors.password }"
                   placeholder="Enter your password"
@@ -51,7 +53,7 @@
               </div>
  
               <!-- Submit -->
-              <button type="submit" class="btn dd-btn-submit w-100" :disabled="isLoading">
+              <button type="submit" class="btn dd-btn-submit w-100">
                 <span v-if="isLoading">Signing in...</span>
                 <span v-else>Sign In</span>
               </button>
@@ -72,82 +74,62 @@
 </template>
  
 <script setup>
-import { ref, reactive } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
- 
-const router = useRouter()
- 
-// Form data
-const form = reactive({
-  email: '',
-  password: ''
-})
- 
-// Validation errors
-const errors = reactive({
-  email: '',
-  password: ''
-})
- 
-const errorMessage = ref('')
-const isLoading = ref(false)
- 
-// Validate form
-function validateForm() {
-  let valid = true
- 
-  // Reset errors
-  errors.email = ''
-  errors.password = ''
- 
-  if (!form.email) {
-    errors.email = 'Email is required.'
-    valid = false
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    errors.email = 'Please enter a valid email address.'
-    valid = false
-  }
- 
-  if (!form.password) {
-    errors.password = 'Password is required.'
-    valid = false
-  } else if (form.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters.'
-    valid = false
-  }
- 
-  return valid
+import { ref, onMounted } from "vue";
+import { setToken } from "@/services/auth";
+onMounted(() => {
+  getCsrfToken();
+});
+const csrf_token = ref("");
+const email = ref("");
+const password = ref("");
+const errorMessage = ref("");
+const successMessage = ref("");
+const errors = ref({});
+
+function getCsrfToken() {
+  fetch('/api/v1/csrf-token')
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data);
+      csrf_token.value = data.csrf_token;
+    })
 }
- 
-// Handle login submit
-async function handleLogin() {
-  errorMessage.value = ''
- 
-  if (!validateForm()) return
- 
-  isLoading.value = true
- 
-  try {
-    // TODO: Replace with your actual Flask API call
-    // const response = await fetch('/api/auth/login', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ email: form.email, password: form.password })
-    // })
-    // const data = await response.json()
-    // if (!response.ok) throw new Error(data.message || 'Login failed')
-    // router.push({ name: 'dashboard' })
- 
-    // Temporary: simulate login for frontend testing
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    router.push({ name: 'dashboard' })
- 
-  } catch (err) {
-    errorMessage.value = err.message || 'Something went wrong. Please try again.'
-  } finally {
-    isLoading.value = false
-  }
+
+function handleLogin(){
+  let login_form = document.getElementById("login_form");
+  let formData = new FormData(login_form);
+  fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrf_token.value
+    },
+    body: formData
+  })
+  .then(function(response){
+                    if (!response.ok) {
+                      return response.text().then(text => {
+                        throw new Error(text || "request failed");
+                      });
+                    }
+                    return response.json();
+                  })
+                  .then(function (data){
+                    console.log("Success:", data);
+                    errorMessage.value = "";
+                    email.value = "";
+                    password.value = "";
+                    setToken(data.token);
+                    window.location.href = "/dashboard";
+
+                  })
+                  .catch(function(error){
+                    errorMessage.value = error.message;
+                    successMessage.value = "";
+                    console.error("Error:", error);
+                  });
+                  
 }
+
 </script>
  
 <style>

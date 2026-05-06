@@ -173,6 +173,8 @@ onMounted(() => {
   getLocation();
 });
 let csrf_token = ref("");
+const locationName = ref("");
+const location_name = ref("");
 const latitude = ref(null)
 const longitude = ref(null)
 const locationError = ref("")
@@ -218,7 +220,8 @@ function getLocation() {
       locationError.value = ""
       console.log("Location:", latitude.value, longitude.value)
       const locationName = await getLocationName(latitude.value, longitude.value)
-      console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
+      location_name.value = locationName.village || locationName.town || locationName.city || "Unknown";  
+      //console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
     },
     (error) => {
       locationError.value = "Location permission denied"
@@ -231,6 +234,10 @@ function getLocation() {
 function registerForm(){
   let register_form = document.getElementById("register_form");
   let form_data = new FormData(register_form);
+  form_data.append("latitude", latitude.value);
+  form_data.append("longitude", longitude.value);
+  form_data.append("location_name", location_name.value);
+  console.log("Form data:", Object.fromEntries(form_data.entries()));
                   fetch("/api/v1/register",{
                     method: "POST",
                     body: form_data,

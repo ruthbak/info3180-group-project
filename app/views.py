@@ -6,7 +6,7 @@ This file creates your application.
 """
 import math
 from app import app, db
-from flask import request, jsonify, send_file, session, flash, send_from_directory
+from flask import request, jsonify, send_file, session, flash, send_from_directory, g
 from werkzeug.utils import secure_filename
 from app.forms import RegistrationForm, LoginForm, ProfileForm
 from app.models import *
@@ -25,17 +25,35 @@ from datetime import date
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        if not token:
+        auth_header = request.headers.get('Authorization')
+
+        #  Missing or malformed header
+        if not auth_header or not auth_header.startswith('Bearer '):
             return jsonify({'message': 'Token is missing!'}), 401
+
+        token = auth_header.split(' ')[1].strip()
+
         try:
+            # Decode token
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            _current_user = user.query.filter_by(id=data['user_id']).first()
-        except:
+
+            # Get user from DB
+            current_user = user.query.filter_by(id=data['user_id']).first()
+
+            if not current_user:
+                return jsonify({'message': 'User not found'}), 401
+
+            #  Store user in request context
+            g.current_user = current_user
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token expired'}), 401
+
+        except jwt.InvalidTokenError:
             return jsonify({'message': 'Token is invalid!'}), 401
-        return f(_current_user, *args, **kwargs)
+
+        return f(*args, **kwargs)
+
     return decorated
 
 @app.route('/')
@@ -86,12 +104,19 @@ def register():
         )
         db.session.add(new_looking_for)
 
+        new_location = user_location(
+            user_id=new_user.id,
+            latitude=form.latitude.data,
+            longitude=form.longitude.data,
+            location_name=form.location_name.data
+        )
+        db.session.add(new_location)
+
         db.session.commit()
         return jsonify(message="Successfully created user account."), 201
     else:
-        e1 = "FORM DATA:", request.form
-        e2 = "FORM ERRORS:", form.errors
-        return jsonify(errors=form_errors(form), form_data=e1, form_errors=e2), 400
+
+        return jsonify(errors=form_errors(form)), 400
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371  # Earth radius in km
@@ -123,6 +148,8 @@ def login():
                 app.config['SECRET_KEY'],
                 algorithm="HS256"
             )
+            userr.last_seen = datetime.datetime.utcnow()
+            db.session.commit()
             return jsonify(token=token), 200
         else:
             return jsonify(message="Invalid email or password"), 401
@@ -290,8 +317,8 @@ def get_profile(id):
 
 @app.route('/api/v1/location', methods=['GET'])
 @token_required  
-def get_location(current_user):
-    locations = db.session.execute(db.select(user_location).filter_by(user_id=current_user.id)).scalars().all()
+def get_location():
+    locations = db.session.execute(db.select(user_location).filter_by(user_id=g.current_user.id)).scalars().all()
 
     if not locations:
         return jsonify(message="No location found"), 404

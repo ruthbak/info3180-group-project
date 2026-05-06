@@ -85,6 +85,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { logout } from "@/services/auth";
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
@@ -108,11 +109,7 @@ const pageTitle = computed(() => {
   return titles[route.name] || 'Dashboard'
 })
 
-function logout() {
-  // TODO: Call Flask logout API
-  // await fetch('/api/auth/logout', { method: 'POST' })
-  router.push({ name: 'home' })
-}
+
 </script>
 
 <style scoped>
