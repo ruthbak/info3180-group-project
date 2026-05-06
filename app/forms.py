@@ -1,7 +1,7 @@
 # Add any form classes for Flask-WTF here
 from flask_wtf import FlaskForm
 from wtforms import DateField, SelectField, StringField, PasswordField, SubmitField, IntegerField, TextAreaField, FloatField
-from wtforms.validators import DataRequired, Email, InputRequired, NumberRange, Length, regexp
+from wtforms.validators import DataRequired, Email, InputRequired, NumberRange, Length, regexp, optional
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 
 class RegistrationForm(FlaskForm):
@@ -36,3 +36,7 @@ class ProfileForm(FlaskForm):
     FileRequired(),
     FileAllowed(['jpg', 'png'], 'Images only!')])
     submit = SubmitField('Update Profile')
+
+class MessageForm(FlaskForm):
+    content = TextAreaField('Message', validators=[InputRequired(), Length(max=1000), regexp('^[A-Za-z0-9 .,!?@#$%^&*()_+-=]*$', 0, 'Message can only contain letters, numbers, spaces, and basic punctuation') ])
+    submit = SubmitField('Send Message')
