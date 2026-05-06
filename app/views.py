@@ -4,7 +4,7 @@ Jinja2 Documentation:    https://jinja.palletsprojects.com/
 Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
-
+import math
 from app import app, db
 from flask import request, jsonify, send_file, session, flash, send_from_directory
 from werkzeug.utils import secure_filename
@@ -94,6 +94,20 @@ def register():
         e2 = "FORM ERRORS:", form.errors
         return jsonify(errors=form_errors(form), form_data=e1, form_errors=e2), 400
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # Earth radius in km
+
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = math.sin(dlat / 2)**2 + \
+        math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+
+    c = 2 * math.asin(math.sqrt(a))
+
+    return R * c  # distance in km
 
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():

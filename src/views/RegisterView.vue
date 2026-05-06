@@ -29,7 +29,7 @@
 
       <input name="password" type="password" v-model="password" placeholder="Password" />
 
-      <button type="submit">Register</button>
+      <button type="submit" :disabled="!latitude || !longitude">Register</button>
     </form>
 
   </div>
@@ -39,8 +39,12 @@
 import { ref, onMounted } from "vue";
 onMounted(() => {
   getCsrfToken();
+  getLocation();
 });
 let csrf_token = ref("");
+const latitude = ref(null)
+const longitude = ref(null)
+const locationError = ref("")
 const email = ref("");
 const username = ref("");
 const firstname = ref("");
@@ -59,6 +63,38 @@ function getCsrfToken() {
       console.log(data);
       csrf_token.value = data.csrf_token;
     })
+}
+
+async function getLocationName(lat, lon) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+  )
+  const data = await response.json()
+
+  console.log(data)
+
+  return data.address // full readable address
+}
+function getLocation() {
+  if (!navigator.geolocation) {
+    locationError.value = "Geolocation not supported"
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      latitude.value = position.coords.latitude
+      longitude.value = position.coords.longitude
+      locationError.value = ""
+      console.log("Location:", latitude.value, longitude.value)
+      const locationName = await getLocationName(latitude.value, longitude.value)
+      console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
+    },
+    (error) => {
+      locationError.value = "Location permission denied"
+      console.error(error)
+    }
+  )
 }
 
 function registerForm(){
