@@ -18,13 +18,15 @@
 
       <!-- User Info -->
       <div class="dd-sidebar-user" v-if="!isCollapsed">
-        <div class="dd-sidebar-avatar">BB</div>
+        <div class="dd-sidebar-avatar">{{ userInitials }}</div>
         <div class="dd-sidebar-user-info">
-          <div class="dd-sidebar-name">Bob Builder</div>
-          <div class="dd-sidebar-status">🟢 Online</div>
+          <div class="dd-sidebar-name">{{ userName }}</div>
+          <div class="dd-sidebar-status">  
+            <span class="dd-online-dot"></span> Online
+          </div>
         </div>
       </div>
-      <div class="dd-sidebar-avatar-sm" v-else>BB</div>
+      <div class="dd-sidebar-avatar-sm" v-else>{{ userInitials}}</div>
 
       <!-- Nav Links -->
       <nav class="dd-sidebar-nav">
@@ -69,7 +71,7 @@
           <h6 class="dd-page-title mb-0">{{ pageTitle }}</h6>
         </div>
         <div class="dd-topbar-right">
-          <span class="dd-topbar-greeting">Welcome back, Bob! 👋</span>
+          <span class="dd-topbar-greeting">Welcome back, {{ userName }}! 👋</span>
         </div>
       </header>
 
@@ -84,8 +86,23 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, reactive  } from 'vue'
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
+
+const currentUser = reactive({
+  firstname: '',
+  lastname:  ''
+})
+
+const userInitials = computed(() => {
+  if (!currentUser.firstname && !currentUser.lastname) return '?'
+  return (currentUser.firstname[0] || '') + (currentUser.lastname[0] || '')
+})
+
+const userName = computed(() => {
+  if (!currentUser.firstname && !currentUser.lastname) return 'User'
+  return `${currentUser.firstname} ${currentUser.lastname}`.trim()
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -358,5 +375,11 @@ function logout() {
   .sidebar-collapsed .dd-main-wrapper {
     margin-left: 0;
   }
+}
+
+.dd-online-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #4ade80; display: inline-block;
+  margin-right: 0.25rem;
 }
 </style>

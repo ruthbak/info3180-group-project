@@ -51,7 +51,7 @@
               </div>
  
               <!-- Submit -->
-              <button type="submit" class="btn dd-btn-submit w-100" :disabled="isLoading">
+              <button type="submit" class="dd-btn-submit w-100" :disabled="isLoading">
                 <span v-if="isLoading">Signing in...</span>
                 <span v-else>Sign In</span>
               </button>
@@ -150,7 +150,7 @@ async function handleLogin() {
 }
 </script>
  
-<style>
+<style scoped>
 .dd-login-page {
   background: linear-gradient(135deg, #fff6ee 0%, #fdeef2 50%, #fff0e8 100%);
   min-height: 100vh;
