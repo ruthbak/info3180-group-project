@@ -47,7 +47,6 @@ def register():
     form = RegistrationForm() 
     if form.validate_on_submit():
         errors = []
-
         if db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar() is not None:
             errors.append("Email already registered")
 
