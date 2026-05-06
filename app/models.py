@@ -137,7 +137,8 @@ class conversation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user1_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     user2_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
-    started_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    last_message = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
 
     messages = db.relationship('message', backref='conversation', lazy='dynamic')
 

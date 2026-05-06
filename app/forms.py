@@ -36,3 +36,7 @@ class ProfileForm(FlaskForm):
     FileRequired(),
     FileAllowed(['jpg', 'png'], 'Images only!')])
     submit = SubmitField('Update Profile')
+
+class MessageForm(FlaskForm):
+    content = TextAreaField('Message', validators=[InputRequired(), Length(max=1000), regexp('^[A-Za-z0-9 .,!?@#$%^&*()_+-=]*$', 0, 'Message can only contain letters, numbers, spaces, and basic punctuation') ])
+    submit = SubmitField('Send Message')
