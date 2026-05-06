@@ -134,8 +134,7 @@ body {
 }
 
 /* ══ SHARED BUTTONS ══ */
-button.dd-btn-submit,
-.dd-btn-submit {
+.dd-btn-submit{
   background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%) !important;
   color: #fff !important;
   border: none !important;
