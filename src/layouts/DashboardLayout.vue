@@ -40,7 +40,16 @@
         </RouterLink>
         <RouterLink to="/messages" class="dd-nav-link" :title="isCollapsed ? 'Messages' : ''">
           <span class="dd-nav-icon"><i class="bi bi-chat-square-dots"></i></span>
+          <div class="dd-nav-chat-wrap">
           <span class="dd-nav-label" v-if="!isCollapsed">Messages</span>
+
+          <span
+            v-if="totalUnreadChats > 0 && !isCollapsed"
+            class="dd-sidebar-chat-badge"
+          >
+            {{ totalUnreadChats }}
+          </span>
+        </div>
         </RouterLink>
         <RouterLink to="/profile/edit" class="dd-nav-link" :title="isCollapsed ? 'My Profile' : ''">
           <span class="dd-nav-icon"><i class="bi bi-person"></i></span>
@@ -103,6 +112,8 @@ const userName = computed(() => {
   if (!currentUser.firstname && !currentUser.lastname) return 'User'
   return `${currentUser.firstname} ${currentUser.lastname}`.trim()
 })
+
+const totalUnreadChats = ref (7)
 
 const router = useRouter()
 const route = useRoute()
@@ -381,5 +392,30 @@ function logout() {
   width: 7px; height: 7px; border-radius: 50%;
   background: #4ade80; display: inline-block;
   margin-right: 0.25rem;
+}
+
+.dd-nav-chat-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dd-sidebar-chat-badge {
+  min-width: 18px;
+  height: 18px;
+
+  border-radius: 50%;
+
+  background: #fff;
+  color: var(--dd-rose);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 0.68rem;
+  font-weight: 700;
+
+  padding: 0 0.35rem;
 }
 </style>
