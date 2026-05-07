@@ -16,12 +16,12 @@
  
             <!-- Error Alert -->
             <div class="alert dd-alert-error" v-if="errors.length">
-  <ul class="mb-0 ps-3">
-    <li v-for="err in errors" :key="err">
-      {{ err }}
-    </li>
-  </ul>
-</div>
+              <ul class="mb-0 ps-3">
+                <li v-for="err in errors" :key="err">
+                  {{ err }}
+                </li>
+              </ul>
+            </div>
           <!-- Success Alert -->
           <div class="alert dd-alert-success" v-if="successMessage">
             {{ successMessage }}

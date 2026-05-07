@@ -45,7 +45,7 @@
 
     <!-- ══ PROFILE QUICK CARD ══ -->
     <div class="dd-profile-card mb-5">
-      <div class="dd-pc-avatar">{{ userIntials }}</div>
+      <div class="dd-pc-avatar"><img :src="user?.profile_photo" alt="Profile Photo" /></div>
       <div class="dd-pc-info flex-grow-1">
         <h6 class="dd-pc-name">{{ user?.first_name }} {{ user?.last_name }}</h6>
         <div class="dd-pc-meta">
@@ -103,7 +103,8 @@
     <!-- Empty state -->
     <div class="dd-empty text-center py-5" v-if="filteredMatches.length === 0">
       <div class="dd-empty-emoji">💔</div>
-      <h6 class="dd-empty-title mt-3">No profiles found</h6>
+      <h6 class="dd-empty-title mt-3" v-if = errors != null>{{errors}}</h6>
+      <h6 class="dd-empty-title mt-3" v-else>No profiles found</h6>
       <p class="dd-empty-sub">Try adjusting your filters.</p>
       <button class="btn dd-btn-primary mt-2" @click="resetFilters">Reset Filters</button>
     </div>
@@ -169,6 +170,11 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getToken } from "@/services/auth";
 onMounted(async () => {
+    await fetchUserProfile();
+    await getPotentialMatches();
+// now to fetch the potential matches we will run the potential matches API to get the list of potential matches and store it in the potentialMatches ref. we will also calculate the match score for each potential match based on the user's profile and the potential match's profile, and store that in the match object as well. for simplicity, we will just calculate a random match score for now, but in a real application you would use a more sophisticated algorithm to calculate the match score based on factors like shared interests, location proximity, etc.
+});
+async function fetchUserProfile() {
   try {
     const token = getToken();
 
@@ -195,10 +201,64 @@ onMounted(async () => {
     error.value = err.message;
 
   }
-});
+  }
+async function getPotentialMatches() {
+  console.log("Fetching potential matches...");
+  try {
+    const token = getToken();
+
+    const response = await fetch("/api/v1/possible-matches", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    // handle HTTP errors properly
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        throw new Error(errorText || "Request failed");
+      }
+
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    const data = await response.json();
+
+    potentialMatches.value = data.matches;
+
+    console.log("Fetched potential matches:", potentialMatches.value);
+
+  } catch (error) {
+
+  try {
+    const parsed = JSON.parse(error.message);
+
+    if (parsed.errors) {
+      errors.value = parsed.errors;
+
+    } else if (parsed.message) {
+      errors.value = parsed.message;
+
+    } else {
+      errors.value = ["An unknown error occurred."];
+    }
+
+  } catch {
+    errors.value = [error.message];
+  }
+
+  console.error("Error:", error);
+}
+}
 const user = ref(null);
 const error = ref("");
-
+const errors = ref("");
 const matchCount   = ref(0)
 const messageCount = ref(0)
 
@@ -336,6 +396,11 @@ function passProfile(match) { match.status = 'passed' }
   color: #fff; font-weight: 700; font-size: 1.1rem;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 14px rgba(192,57,90,0.28);
+}
+.dd-pc-avatar img {
+  width: 100%; height: 100%; border-radius: 50%;
+  object-fit: cover;
+  border: black 1px solid;
 }
 .dd-pc-name { font-weight: 700; font-size: 1rem; color: #2A1018; margin: 0 0 0.25rem; }
 .dd-pc-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: #9E6373; margin-bottom: 0.3rem; }

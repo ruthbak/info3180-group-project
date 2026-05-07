@@ -17,9 +17,14 @@
             </div>
 
             <!-- Error Alert -->
-            <div class="alert dd-alert-error" v-if="errorMessage">
-              {{ errorMessage }}
-            </div>
+            <div class="alert dd-alert-error" v-if="errors.length">
+  <ul class="mb-0" v-if="Array.isArray(errors)">
+    <li v-for="error in errors" :key="error">
+      {{ error }}
+    </li>
+  </ul>
+
+</div>
 
             <!-- Success Alert -->
             <div class="alert dd-alert-success" v-if="successMessage">
@@ -187,7 +192,8 @@ const gender = ref("");
 const lookingfor = ref("");
 const password = ref("");
 const successMessage = ref("");
-const errorMessage = ref("");
+const errorMessage = ref([]);
+const errors = ref([]);
 const isLoading     = ref(false);
 
 function getCsrfToken() {
@@ -265,9 +271,18 @@ function registerForm(){
                     gender.value = "";
                     lookingfor.value = "";
                     password.value = "";
+                    window.location.href = "/login";
                   })
                   .catch(function(error){
-                    errorMessage.value = error.message;
+                    if (error.response && error.response.data.errors) {
+
+        errors.value = error.response.data.errors
+
+    } else {
+         errorMessage.value = JSON.parse(error.message).errors;
+         errors.value = errorMessage.value || ["An error occurred during registration. Please try again."]
+
+    }
                     successMessage.value = "";
                     console.error("Error:", error);
                   });
