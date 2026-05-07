@@ -110,16 +110,18 @@ class user_photo(db.Model):
     def __repr__(self):
         return '<User Photo {}>'.format(self.photo_url)
     
-class swipe(db.Model):
-    __tablename__ = 'swipe'
+class likes(db.Model):
+    __tablename__ = 'likes'
     id = db.Column(db.Integer, primary_key=True)
     swiper_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     swipee_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     action = db.Column(db.String(16), index=True)
-    swiped_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    action_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('swiper_id','swipee_id',name='unique_like'),)
 
     def __repr__(self):
-        return '<Swipe {}>'.format(self.action)
+        return '<Like {}>'.format(self.action)
     
 class match(db.Model):
     __tablename__ = 'matches'
@@ -128,6 +130,8 @@ class match(db.Model):
     user2_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     matched_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     status = db.Column(db.String(16), index=True)
+
+    __table_args__ = (db.UniqueConstraint('user1_id','user2_id',name='unique_match'),)
 
     def __repr__(self):
         return '<Match {}>'.format(self.id)
