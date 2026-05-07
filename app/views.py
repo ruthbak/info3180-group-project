@@ -324,16 +324,13 @@ def get_profile(username):
     location = db.session.execute(db.select(user_location).filter_by(user_id=target_user.id)).scalar()
 
     if target_user.visibility == False and target_user.id != db.session.execute(db.select(matches).filter_by(id=g.current_user.id)).scalar().id:
-        profile=profile(
-        'username': target_user.username,
+        return jsonify(profile={'username': target_user.username,
         'first_name': profile.first_name,
         'last_name': profile.last_name,
         'age': calculate_age(profile.dob) if profile.dob else None,
         'gender': profile.gender,
         'description': profile.description,
-        'photo': photo.photo_url if photo else None
-        )
-        return jsonify(profile=profile, message="User profile is private"), 403
+        'photo': photo.photo_url if photo else None}, message="User profile is private"), 403
     else:
         return jsonify(profile={
             'username': target_user.username,
