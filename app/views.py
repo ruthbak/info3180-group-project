@@ -4,16 +4,14 @@ Jinja2 Documentation:    https://jinja.palletsprojects.com/
 Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
-
-from pyexpat.errors import messages
-
+import math
 from app import app, db
-from flask import request, jsonify, send_file, session, flash, send_from_directory
+from flask import request, jsonify, send_file, session, flash, send_from_directory, g
 from werkzeug.utils import secure_filename
 from app.forms import RegistrationForm, LoginForm, ProfileForm
 from app.models import *
 from functools import wraps
-from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
 from werkzeug.security import generate_password_hash, check_password_hash
 import os, datetime, jwt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
@@ -27,17 +25,35 @@ from datetime import date
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        if not token:
+        auth_header = request.headers.get('Authorization')
+
+        #  Missing or malformed header
+        if not auth_header or not auth_header.startswith('Bearer '):
             return jsonify({'message': 'Token is missing!'}), 401
+
+        token = auth_header.split(' ')[1].strip()
+
         try:
+            # Decode token
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            _current_user = users.query.filter_by(id=data['user_id']).first()
-        except:
+
+            # Get user from DB
+            current_user = user.query.filter_by(id=data['user_id']).first()
+
+            if not current_user:
+                return jsonify({'message': 'User not found'}), 401
+
+            #  Store user in request context
+            g.current_user = current_user
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token expired'}), 401
+
+        except jwt.InvalidTokenError:
             return jsonify({'message': 'Token is invalid!'}), 401
-        return f(_current_user, *args, **kwargs)
+
+        return f(*args, **kwargs)
+
     return decorated
 
 @app.route('/')
@@ -46,22 +62,21 @@ def index():
 
 @app.route('/api/v1/register', methods=['POST'])
 def register():
-    form = RegistrationForm()
+    form = RegistrationForm() 
     if form.validate_on_submit():
         errors = []
-
-        if db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar() is not None:
+        if db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar() is not None:
             errors.append("Email already registered")
 
-        if db.session.execute(db.select(users).filter_by(username=form.username.data)).scalar() is not None:
+        if db.session.execute(db.select(user).filter_by(username=form.username.data)).scalar() is not None:
             errors.append("Username already taken")
 
         if errors:
             return jsonify(errors=errors), 400
 
-        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        hashed_password = generate_password_hash(form.password.data, method='pbkdf2:sha256')
 
-        new_user = users(
+        new_user = user(
             email=form.email.data,
             username=form.username.data,
             password_hash=hashed_password,         
@@ -75,8 +90,8 @@ def register():
 
         new_profile = user_profile(
             user_id=new_user.id,
-            first_name=form.first_name.data,
-            last_name=form.last_name.data,
+            first_name=form.firstname.data,
+            last_name=form.lastname.data,
             dob=form.dob.data,
             gender=form.gender.data,
             description=""
@@ -85,37 +100,65 @@ def register():
 
         new_looking_for = user_looking_for(
             user_id=new_user.id,
-            looking_for=form.looking_for.data
+            looking_for=form.lookingfor.data
         )
         db.session.add(new_looking_for)
+
+        new_location = user_location(
+            user_id=new_user.id,
+            latitude=form.latitude.data,
+            longitude=form.longitude.data,
+            location_name=form.location_name.data
+        )
+        db.session.add(new_location)
 
         db.session.commit()
         return jsonify(message="Successfully created user account."), 201
     else:
+
         return jsonify(errors=form_errors(form)), 400
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371  # Earth radius in km
+
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = math.sin(dlat / 2)**2 + \
+        math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+
+    c = 2 * math.asin(math.sqrt(a))
+
+    return R * c  # distance in km
 
 @app.route('/api/v1/auth/login', methods=['POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.execute(db.select(users).filter_by(email=form.email.data)).scalar()
+        userr = db.session.execute(db.select(user).filter_by(email=form.email.data)).scalar()
         
-        if user and check_password_hash(user.password_hash, form.password.data):
+        if userr and check_password_hash(userr.password_hash, form.password.data):
             token = jwt.encode(
                 {
-                    'user_id': user.id,
+                    'user_id': userr.id,
                     'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
                 },
                 app.config['SECRET_KEY'],
                 algorithm="HS256"
             )
+            userr.last_seen = datetime.datetime.utcnow()
+            db.session.commit()
             return jsonify(token=token), 200
         else:
             return jsonify(message="Invalid email or password"), 401
     else:
         return jsonify(errors=form_errors(form)), 400
 
+@app.route('/api/v1/csrf-token', methods=['GET']) 
+def get_csrf(): 
+    return jsonify({'csrf_token': generate_csrf()}) 
 
 @app.route('/api/v1/auth/logout', methods=['POST'])
 @token_required  
@@ -183,10 +226,7 @@ def profile(current_user):
 
 
 @app.route('/api/v1/users', methods=['GET'])
-def users():
-    query = request.args.get('query')
-    if not query:
-        return jsonify(message="Query parameter is required"), 400
+def get_users():
 
     def calculate_age(dob):
         today = date.today()
@@ -194,23 +234,15 @@ def users():
 
     results = (
         db.session.query(
-            users.id,
-            users.username,
-            users.joined_at,
+            user.id,
+            user.username,
+            user.joined_at,
             user_profile.first_name,
             user_profile.last_name,
             user_profile.dob,
-            user_profile.gender,
-            user_location.location_name,
-            user_preferences.min_age,
-            user_preferences.max_age,
-            user_preferences.gender_preference,
-            user_preferences.max_distance,
+            user_profile.gender
         )
-        .join(user_profile,user_profile.user_id==users.id)
-        .join(user_location,user_location.user_id==users.id)
-        .join(user_preferences,user_preferences.user_id==users.id)
-        .filter(users.username.ilike(f'%{query}%'))
+        .join(user_profile, user_profile.user_id == user.id)
         .all()
     )
 
@@ -218,49 +250,74 @@ def users():
         return jsonify(message="No users found matching the query"), 404
 
     user_cards = []
-    for row in results:
-        looking_for_rows = db.session.execute(db.select(user_looking_for).filter_by(user_id=row.id)).scalars().all()
-        looking_for_list = [lf.looking_for for lf in looking_for_rows]
 
-        photo = db.session.execute(db.select(user_photo).filter_by(user_id=row.id)).scalars()
+    for row in results:
+        #  Get "looking_for" values
+        looking_for_rows = (
+            db.session.execute(
+                db.select(user_looking_for).filter_by(user_id=row.id)
+            )
+            .scalars()
+            .all()
+        )
+        looking_for_list = [lf.looking_for for lf in looking_for_rows][0]
+
+        #  Get photos and convert to list of filenames (or URLs)
+        photo_rows = (
+            db.session.execute(
+                db.select(user_photo).filter_by(user_id=row.id)
+            )
+            .scalars()
+            .all()
+        )
+        photo_list = [p.filename for p in photo_rows]  # adjust field if needed
 
         user_cards.append({
-            "username":row.username,
-            "first_name":row.first_name,
-            "last_name":row.last_name,
-            "age":calculate_age(row.dob) if row.dob else None,
-            "gender":row.gender,
-            "location":row.location_name,
-            "preferences":{
-                "min_age":row.min_age,
-                "max_age":row.max_age,
-                "gender_preference":row.gender_preference,
-                "max_distance":row.max_distance
-            },
-            "looking_for":looking_for_list,  
-            "photo":photo,          
-            "joined_at":row.joined_at.strftime('%Y-%m-%d')
+            "username": row.username,
+            "first_name": row.first_name,
+            "last_name": row.last_name,
+            "age": calculate_age(row.dob) if row.dob else None,
+            "gender": row.gender,
+            "looking_for": looking_for_list,
+            "photo": photo_list,
+            "joined_at": row.joined_at.strftime('%Y-%m-%d') if row.joined_at else None
         })
 
     return jsonify(users=user_cards), 200
 
 
-@app.route('/api/v1/users/<int:id>', methods=['GET'])
-def get_user(id):
-    user = db.session.execute(db.select(users).filter_by(id=id)).scalar()
-    if not user:
+@app.route('/api/v1/user/', methods=['GET'])
+@token_required
+def get_user():
+    userr = g.current_user
+
+    if not userr:
         return jsonify(message="User not found"), 404
+    first_name = db.session.execute(db.select(user_profile.first_name).filter_by(user_id=userr.id)).scalar()
+    last_name = db.session.execute(db.select(user_profile.last_name).filter_by(user_id=userr.id)).scalar()
+    dob = db.session.execute(db.select(user_profile.dob).filter_by(user_id=userr.id)).scalar()
+    age = None
+    if dob:
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    location = db.session.execute(db.select(user_location.location_name).filter_by(user_id=userr.id)).scalar()
+    bio = db.session.execute(db.select(user_profile.description).filter_by(user_id=userr.id)).scalar()
+    looking_for = db.session.execute(db.select(user_looking_for.looking_for).filter_by(user_id=userr.id)).scalar()
     return jsonify(user={
-        'username':   user.username,
-        'email':      user.email,
-        'visibility': user.visibility,
-        'joined_at':  user.joined_at,
-        'updated_at': user.updated_at,
-        'last_seen':  user.last_seen
+        'username': userr.username,
+        'email': userr.email,
+        'first_name': first_name,
+        'last_name':  last_name,
+        'age': age,
+        'visibility': userr.visibility,
+        'location': location,
+        'bio': bio,
+        'looking_for': looking_for
     }), 200
 
 
 @app.route('/api/v1/profile/<int:id>', methods=['GET'])
+@token_required
 def get_profile(id):
     profile = db.session.execute(db.select(user_profile).filter_by(user_id=id)).scalar()
     if not profile:
@@ -276,8 +333,8 @@ def get_profile(id):
 
 @app.route('/api/v1/location', methods=['GET'])
 @token_required  
-def get_location(current_user):
-    locations = db.session.execute(db.select(user_location).filter_by(user_id=current_user.id)).scalars().all()
+def get_location():
+    locations = db.session.execute(db.select(user_location).filter_by(user_id=g.current_user.id)).scalars().all()
 
     if not locations:
         return jsonify(message="No location found"), 404
@@ -325,9 +382,9 @@ def search():
     
     result = (
         db.session.query(
-            users.id,
-            users.username,
-            users.joined_at,
+            user.id,
+            user.username,
+            user.joined_at,
             user_profile.first_name,
             user_profile.last_name,
             user_profile.dob,
@@ -338,10 +395,10 @@ def search():
             user_preferences.gender_preference,
             user_preferences.max_distance,
         )
-        .join(user_profile,user_profile.user_id==users.id)
-        .join(user_location,user_location.user_id==users.id)
-        .join(user_preferences,user_preferences.user_id==users.id)
-        .filter(users.username == username)   # exact match, case-sensitive
+        .join(user_profile,user_profile.user_id==user.id)
+        .join(user_location,user_location.user_id==user.id)
+        .join(user_preferences,user_preferences.user_id==user.id)
+        .filter(user.username == username)   # exact match, case-sensitive
         .first()
     )
 
@@ -374,170 +431,6 @@ def search():
     }
 
     return jsonify(user=user_card), 200
-    
-@app.route('/api/v1/messages/<int:conversation_id>', methods=['GET'])
-@token_required
-def get_messages(current_user, conversation_id):
-
-    # 1. Verify conversation exists and belongs to the current user
-    conversation = db.session.execute(
-        db.select(conversations).filter(
-            conversations.id == conversation_id,
-            db.or_(
-                conversations.user1_id == current_user.id,
-                conversations.user2_id == current_user.id
-            )
-        )
-    ).scalar()
-    if not conversation:
-        return jsonify(message="Conversation not found"), 404
-
-    # 2. Fetch all messages in one query
-    all_messages = db.session.execute(
-        db.select(messages)
-        .filter_by(conversation_id=conversation_id)
-        .order_by(messages.sent_at.asc())
-    ).scalars().all()
-
-    if not all_messages:
-        return jsonify(messages=[], total=0), 200
-
-    # 3. Resolve sender and recipient usernames once — avoids N+1
-    #    We only ever have 2 users in a conversation
-    user1 = db.session.execute(
-        db.select(users).filter_by(id=conversation.user1_id)
-    ).scalar()
-    user2 = db.session.execute(
-        db.select(users).filter_by(id=conversation.user2_id)
-    ).scalar()
-
-    # Map id -> username for O(1) lookup per message
-    username_map = {
-        user1.id: user1.username,
-        user2.id: user2.username
-    }
-
-    # 4. Mark all unread messages from the other user as read in one pass
-    unread = [
-        msg for msg in all_messages
-        if msg.sender_id != current_user.id and not msg.is_read
-    ]
-    for msg in unread:
-        msg.is_read = True
-    if unread:
-        db.session.commit()
-
-    # 5. Build response
-    messages_list = []
-    for msg in all_messages:
-        recipient_id = (
-            conversation.user2_id
-            if msg.sender_id == conversation.user1_id
-            else conversation.user1_id
-        )
-        messages_list.append({
-            "message_id":msg.id,
-            "sender":username_map.get(msg.sender_id),
-            "recipient":username_map.get(recipient_id),
-            "message_text":msg.message_text,
-            "sent_at":msg.sent_at.strftime('%Y-%m-%d %H:%M:%S'),
-            "is_read":msg.is_read
-        })
-
-    return jsonify(messages=messages_list, total=len(messages_list)), 200
-
-
-@app.route('/api/v1/messages/<int:recipient_id>', methods=['POST'])
-@token_required
-def send_message(current_user, recipient_id):
-
-    # 1. Prevent messaging yourself first — cheapest check, no db hit needed
-    if recipient_id == current_user.id:
-        return jsonify(message="You cannot message yourself"), 400
-
-    # 2. Validate message body early before any db queries
-    data = request.get_json()
-    message_text = data.get('message_text', '').strip() if data else ''
-
-    if not message_text:
-        return jsonify(message="Message cannot be empty"), 400
-    if len(message_text) > 1000:
-        return jsonify(message="Message cannot exceed 1000 characters"), 400
-
-    # 3. Recipient check
-    recipient = db.session.execute(
-        db.select(users).filter_by(id=recipient_id)
-    ).scalar()
-    if not recipient:
-        return jsonify(message="Recipient not found"), 404
-
-    # 4. Active match check
-    existing_match = db.session.execute(
-        db.select(matches).filter(
-            db.or_(
-                db.and_(
-                    matches.user1_id == current_user.id,
-                    matches.user2_id == recipient_id
-                ),
-                db.and_(
-                    matches.user1_id == recipient_id,
-                    matches.user2_id == current_user.id
-                )
-            ),
-            matches.status == 'active'
-        )
-    ).scalar()
-    if not existing_match:
-        return jsonify(message="You can only message your matches"), 403
-
-    # 5. Find or create conversation
-    conversation = db.session.execute(
-        db.select(conversations).filter(
-            db.or_(
-                db.and_(
-                    conversations.user1_id == current_user.id,
-                    conversations.user2_id == recipient_id
-                ),
-                db.and_(
-                    conversations.user1_id == recipient_id,
-                    conversations.user2_id == current_user.id
-                )
-            )
-        )
-    ).scalar()
-
-    if not conversation:
-        conversation = conversations(
-            user1_id=current_user.id,
-            user2_id=recipient_id,
-            started_at=datetime.datetime.utcnow()
-        )
-        db.session.add(conversation)
-        db.session.flush()
-
-    # 6. Save the message
-    new_message = messages(
-        conversation_id=conversation.id,
-        sender_id=current_user.id,
-        message_text=message_text,
-        sent_at=datetime.datetime.utcnow(),
-        is_read=False
-    )
-    db.session.add(new_message)
-    db.session.commit()
-
-    return jsonify(
-        message="Message sent successfully",
-        data={
-            "message_id":new_message.id,
-            "conversation_id":conversation.id,
-            "sender":current_user.username,
-            "recipient":recipient.username,
-            "message_text":new_message.message_text,
-            "sent_at":new_message.sent_at.strftime('%Y-%m-%d %H:%M:%S'),
-            "is_read":new_message.is_read
-        }
-    ), 201
 
 ###
 # The functions below should be applicable to all Flask apps.
@@ -580,3 +473,4 @@ def add_header(response):
 @app.errorhandler(404)
 def page_not_found(error):
     """Custom 404 page."""
+    return jsonify(message="Sorry, the requested resource was not found"), 404
