@@ -5,7 +5,7 @@
     <div class="dd-welcome-banner mb-4">
       <div class="dd-welcome-left">
         <p class="dd-welcome-eyebrow">✦ {{ today }}</p>
-        <h2 class="dd-welcome-title">Welcome back, {{ currentUser.firstname }}! 👋</h2>
+        <h2 class="dd-welcome-title">Welcome back, {{ user?.first_name }}! 👋</h2>
         <p class="dd-welcome-sub">
           You have <strong>{{ remainingMatches }} potential matches</strong> waiting for you today.
           Keep swiping and find your perfect flame.
@@ -35,7 +35,7 @@
               <div class="dd-stack-avatar"><i class="bi bi-person-circle"></i></div>
             <div>
               <p class="dd-stack-name">Your next match</p>
-              <p class="dd-stack-loc">📍 Kingston</p>
+              <p class="dd-stack-loc">📍 To Be Updated</p>
             </div>
             <span class="dd-stack-pct">??%</span>
           </div>
@@ -45,15 +45,15 @@
 
     <!-- ══ PROFILE QUICK CARD ══ -->
     <div class="dd-profile-card mb-5">
-      <div class="dd-pc-avatar">{{ userIntials }}</div>
+      <div class="dd-pc-avatar"><img :src="user?.profile_photo" alt="Profile Photo" /></div>
       <div class="dd-pc-info flex-grow-1">
-        <h6 class="dd-pc-name">{{ currentUser.firstname }} {{ currentUser.lastname }}</h6>
+        <h6 class="dd-pc-name">{{ user?.first_name }} {{ user?.last_name }}</h6>
         <div class="dd-pc-meta">
-        <span><i class="bi bi-cake2"></i> {{ currentUser.age }} yrs</span>
-        <span><i class="bi bi-geo-alt-fill"></i> {{ currentUser.location }}</span>
-        <span><i class="bi bi-heart-fill"></i> {{ currentUser.lookingFor }}</span>
+        <span><i class="bi bi-cake2"></i> {{ user?.age }} yrs</span>
+        <span><i class="bi bi-geo-alt-fill"></i> {{ user?.location }}</span>
+        <span><i class="bi bi-heart-fill"></i> {{ user?.looking_for }}</span>
         </div>
-        <p class="dd-pc-bio">{{ currentUser.bio }}</p>
+        <p class="dd-pc-bio">{{ user?.bio }}</p>
       </div>
       <RouterLink to="/profile/edit" class="btn dd-btn-edit ms-auto">
         <i class="bi bi-pencil-square me-1"></i> Edit Profile
@@ -103,7 +103,8 @@
     <!-- Empty state -->
     <div class="dd-empty text-center py-5" v-if="filteredMatches.length === 0">
       <div class="dd-empty-emoji">💔</div>
-      <h6 class="dd-empty-title mt-3">No profiles found</h6>
+      <h6 class="dd-empty-title mt-3" v-if = errors != null>{{errors}}</h6>
+      <h6 class="dd-empty-title mt-3" v-else>No profiles found</h6>
       <p class="dd-empty-sub">Try adjusting your filters.</p>
       <button class="btn dd-btn-primary mt-2" @click="resetFilters">Reset Filters</button>
     </div>
@@ -165,23 +166,108 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getToken } from "@/services/auth";
+onMounted(async () => {
+    await fetchUserProfile();
+    await getPotentialMatches();
+// now to fetch the potential matches we will run the potential matches API to get the list of potential matches and store it in the potentialMatches ref. we will also calculate the match score for each potential match based on the user's profile and the potential match's profile, and store that in the match object as well. for simplicity, we will just calculate a random match score for now, but in a real application you would use a more sophisticated algorithm to calculate the match score based on factors like shared interests, location proximity, etc.
+});
+async function fetchUserProfile() {
+  try {
+    const token = getToken();
 
+    const response = await fetch("/api/v1/user/", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      response.text().then(text => {
+      throw new Error(text || "request failed");
+      });
+    }
+    
+    const data = await response.json();
+
+
+    user.value = data.user;
+
+
+  } catch (err) {
+    error.value = err.message;
+
+  }
+  }
+async function getPotentialMatches() {
+  console.log("Fetching potential matches...");
+  try {
+    const token = getToken();
+
+    const response = await fetch("/api/v1/possible-matches", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    // handle HTTP errors properly
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        throw new Error(errorText || "Request failed");
+      }
+
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    const data = await response.json();
+
+    potentialMatches.value = data.matches;
+
+    console.log("Fetched potential matches:", potentialMatches.value);
+
+  } catch (error) {
+
+  try {
+    const parsed = JSON.parse(error.message);
+
+    if (parsed.errors) {
+      errors.value = parsed.errors;
+
+    } else if (parsed.message) {
+      errors.value = parsed.message;
+
+    } else {
+      errors.value = ["An unknown error occurred."];
+    }
+
+  } catch {
+    errors.value = [error.message];
+  }
+
+  console.error("Error:", error);
+}
+}
+const user = ref(null);
+const error = ref("");
+const errors = ref("");
 const matchCount   = ref(0)
 const messageCount = ref(0)
 
-// Compute initials dynamically
-const currentUser = reactive({
-  firstname: '', lastname: '',
-  age: null, location: '',
-  lookingFor: '',
-  bio: ''
-})
+
+
 
 const userInitials = computed(() => {
-  if (!currentUser.firstname && !currentUser.lastname) return '?'
-  return (currentUser.firstname[0] || '') + (currentUser.lastname[0] || '')
+  if (!user.value?.firstname && !user.value?.lastname) return '?'
+  return (user.value.firstname[0] || '') + (user.value.lastname[0] || '')
 })
 
 
@@ -310,6 +396,11 @@ function passProfile(match) { match.status = 'passed' }
   color: #fff; font-weight: 700; font-size: 1.1rem;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 14px rgba(192,57,90,0.28);
+}
+.dd-pc-avatar img {
+  width: 100%; height: 100%; border-radius: 50%;
+  object-fit: cover;
+  border: black 1px solid;
 }
 .dd-pc-name { font-weight: 700; font-size: 1rem; color: #2A1018; margin: 0 0 0.25rem; }
 .dd-pc-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: #9E6373; margin-bottom: 0.3rem; }
