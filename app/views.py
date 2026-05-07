@@ -6,7 +6,7 @@ This file creates your application.
 """
 import math
 from app import app, db
-from flask import request, jsonify, send_file, session, flash, send_from_directory, g
+from flask import request, jsonify, send_file, session, flash, send_from_directory, g, url_for
 from werkzeug.utils import secure_filename
 from app.forms import RegistrationForm, LoginForm, ProfileForm
 from app.models import *
