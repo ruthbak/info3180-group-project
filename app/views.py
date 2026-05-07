@@ -162,7 +162,7 @@ def get_csrf():
 
 @app.route('/api/v1/auth/logout', methods=['POST'])
 @token_required  
-def logout(current_user):
+def logout():
     logout_user()  # This will clear the session cookie, but since we're using JWTs, the client should just discard the token
     return jsonify(message="Successfully logged out"), 200
 
@@ -286,22 +286,36 @@ def get_users():
     return jsonify(users=user_cards), 200
 
 
-@app.route('/api/v1/users/<int:id>', methods=['GET'])
-def get_user(id):
-    userr = db.session.execute(db.select(user).filter_by(id=id)).scalar()
+@app.route('/api/v1/user/', methods=['GET'])
+@token_required
+def get_user():
+    userr = g.current_user
+
     if not userr:
         return jsonify(message="User not found"), 404
+    first_name = db.session.execute(db.select(user_profile.first_name).filter_by(user_id=userr.id)).scalar()
+    last_name = db.session.execute(db.select(user_profile.last_name).filter_by(user_id=userr.id)).scalar()
+    dob = db.session.execute(db.select(user_profile.dob).filter_by(user_id=userr.id)).scalar()
+    age = None
+    if dob:
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    location = db.session.execute(db.select(user_location.location_name).filter_by(user_id=userr.id)).scalar()
+    bio = db.session.execute(db.select(user_profile.description).filter_by(user_id=userr.id)).scalar()
+    looking_for = db.session.execute(db.select(user_looking_for.looking_for).filter_by(user_id=userr.id)).scalar()
     return jsonify(user={
-        'username':   userr.username,
-        'email':      userr.email,
-        'visibility': userr.visibility,
-        'joined_at':  userr.joined_at,
-        'updated_at': userr.updated_at,
-        'last_seen':  userr.last_seen
+        'username': userr.username,
+        'first_name': first_name,
+        'last_name':  last_name,
+        'age': age,
+        'location': location,
+        'bio': bio,
+        'looking_for': looking_for
     }), 200
 
 
 @app.route('/api/v1/profile/<int:id>', methods=['GET'])
+@token_required
 def get_profile(id):
     profile = db.session.execute(db.select(user_profile).filter_by(user_id=id)).scalar()
     if not profile:

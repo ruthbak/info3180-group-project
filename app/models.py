@@ -140,6 +140,8 @@ class conversation(db.Model):
     last_message = db.Column(db.Text)
     updated_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
 
+    __table_args__ = (db.UniqueConstraint('user1_id','user2_id',name='unique_conversation'),)
+
     messages = db.relationship('message', backref='conversation', lazy='dynamic')
 
     def __repr__(self):

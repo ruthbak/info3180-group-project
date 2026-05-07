@@ -134,34 +134,38 @@ body {
 }
 
 /* ══ SHARED BUTTONS ══ */
-.dd-btn-submit {
-  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%);
-  color: #fff;
-  border: none;
-  border-radius: 100px;
+.dd-btn-submit{
+  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 100px !important;
   font-weight: 600;
   font-size: 0.95rem;
   padding: 0.75rem;
+  width: 100%;
+  cursor: pointer;
   box-shadow: 0 6px 20px rgba(192, 57, 90, 0.28);
   transition: opacity 0.2s, transform 0.15s;
 }
 
+button.dd-btn-submit:hover:not(:disabled),
 .dd-btn-submit:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
-  color: #fff;
+  color: #fff !important;
 }
 
+button.dd-btn-submit:disabled,
 .dd-btn-submit:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
 .dd-btn-primary {
-  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%);
+  background: linear-gradient(135deg, #C0395A 0%, #E8563A 100%) !important;
   color: #fff !important;
-  border: none;
-  border-radius: 100px;
+  border: none !important;
+  border-radius: 100px !important;
   font-weight: 600;
   transition: opacity 0.2s, transform 0.15s;
 }

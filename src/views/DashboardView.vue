@@ -4,8 +4,8 @@
     <!-- ══ WELCOME BANNER ══ -->
     <div class="dd-welcome-banner mb-4">
       <div class="dd-welcome-left">
-        <p class="dd-welcome-eyebrow">✦ Monday, {{ today }}</p>
-        <h2 class="dd-welcome-title">Welcome back, {{ currentUser.firstName }}! 👋</h2>
+        <p class="dd-welcome-eyebrow">✦ {{ today }}</p>
+        <h2 class="dd-welcome-title">Welcome back, {{ user?.first_name }}! 👋</h2>
         <p class="dd-welcome-sub">
           You have <strong>{{ remainingMatches }} potential matches</strong> waiting for you today.
           Keep swiping and find your perfect flame.
@@ -17,12 +17,12 @@
           </div>
           <div class="dd-wstat-divider"></div>
           <div class="dd-wstat">
-            <span class="dd-wstat-num">3</span>
+            <span class="dd-wstat-num">{{ matchCount }}</span>
             <span class="dd-wstat-label">Matches</span>
           </div>
           <div class="dd-wstat-divider"></div>
           <div class="dd-wstat">
-            <span class="dd-wstat-num">5</span>
+            <span class="dd-wstat-num">{{ messageCount }}</span>
             <span class="dd-wstat-label">Messages</span>
           </div>
         </div>
@@ -32,12 +32,12 @@
           <div class="dd-stack-card dd-stack-card-3"></div>
           <div class="dd-stack-card dd-stack-card-2"></div>
           <div class="dd-stack-card dd-stack-card-1">
-            <div class="dd-stack-avatar">🌸</div>
+              <div class="dd-stack-avatar"><i class="bi bi-person-circle"></i></div>
             <div>
-              <p class="dd-stack-name">Sofia, 24</p>
-              <p class="dd-stack-loc">📍 Kingston</p>
+              <p class="dd-stack-name">Your next match</p>
+              <p class="dd-stack-loc">📍 To Be Updated</p>
             </div>
-            <span class="dd-stack-pct">92%</span>
+            <span class="dd-stack-pct">??%</span>
           </div>
         </div>
       </div>
@@ -45,15 +45,15 @@
 
     <!-- ══ PROFILE QUICK CARD ══ -->
     <div class="dd-profile-card mb-5">
-      <div class="dd-pc-avatar">BB</div>
+      <div class="dd-pc-avatar">{{ userIntials }}</div>
       <div class="dd-pc-info flex-grow-1">
-        <h6 class="dd-pc-name">{{ currentUser.firstName }} {{ currentUser.lastName }}</h6>
+        <h6 class="dd-pc-name">{{ user?.first_name }} {{ user?.last_name }}</h6>
         <div class="dd-pc-meta">
-        <span><i class="bi bi-cake2"></i> {{ currentUser.age }} yrs</span>
-        <span><i class="bi bi-geo-alt-fill"></i> {{ currentUser.location }}</span>
-        <span><i class="bi bi-heart-fill"></i> {{ currentUser.lookingFor }}</span>
+        <span><i class="bi bi-cake2"></i> {{ user?.age }} yrs</span>
+        <span><i class="bi bi-geo-alt-fill"></i> {{ user?.location }}</span>
+        <span><i class="bi bi-heart-fill"></i> {{ user?.looking_for }}</span>
         </div>
-        <p class="dd-pc-bio">{{ currentUser.bio }}</p>
+        <p class="dd-pc-bio">{{ user?.bio }}</p>
       </div>
       <RouterLink to="/profile/edit" class="btn dd-btn-edit ms-auto">
         <i class="bi bi-pencil-square me-1"></i> Edit Profile
@@ -165,25 +165,57 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getToken } from "@/services/auth";
+onMounted(async () => {
+  try {
+    const token = getToken();
 
-const currentUser = reactive({
-  firstName: 'Bob', lastName: 'Builder',
-  age: 27, location: 'Kingston, Jamaica',
-  lookingFor: 'Women',
-  bio: 'Software developer by day, photographer by night.'
+    const response = await fetch("/api/v1/user/", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      response.text().then(text => {
+      throw new Error(text || "request failed");
+      });
+    }
+    
+    const data = await response.json();
+
+
+    user.value = data.user;
+
+
+  } catch (err) {
+    error.value = err.message;
+
+  }
+});
+const user = ref(null);
+const error = ref("");
+
+const matchCount   = ref(0)
+const messageCount = ref(0)
+
+
+
+
+const userInitials = computed(() => {
+  if (!user.value?.firstname && !user.value?.lastname) return '?'
+  return (user.value.firstname[0] || '') + (user.value.lastname[0] || '')
 })
+
+
 
 const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
-const potentialMatches = ref([
-  { id: 1, name: 'Alice Wonder',  age: 25, location: 'Kingston',     lookingFor: 'Men', bio: "Love hiking and adventure! Let's explore the world together.", matchScore: 92, emoji: '🌸', avatarBg: '#FDEEF2', interests: ['Hiking','Travel','Photography'], status: 'pending' },
-  { id: 2, name: 'Grace Gamer',   age: 22, location: 'Montego Bay',  lookingFor: 'Men', bio: "Gamer and coffee enthusiast. Let's play!",                      matchScore: 88, emoji: '🌻', avatarBg: '#FFF0E8', interests: ['Gaming','Coffee','Anime'],       status: 'pending' },
-  { id: 3, name: 'Carol Cook',    age: 24, location: 'Spanish Town', lookingFor: 'Men', bio: 'Chef and food lover. Looking for someone to cook for!',          matchScore: 85, emoji: '🦋', avatarBg: '#FFF8E1', interests: ['Cooking','Food','Music'],        status: 'pending' },
-  { id: 4, name: 'Emma Artist',   age: 23, location: 'Portmore',     lookingFor: 'Men', bio: "Artist and creative soul. Let's create art together!",           matchScore: 80, emoji: '🎨', avatarBg: '#FDEEF2', interests: ['Art','Music','Poetry'],          status: 'pending' },
-  { id: 5, name: 'Sophia Dancer', age: 26, location: 'Kingston',     lookingFor: 'Men', bio: 'Dance instructor who loves the beach and good vibes.',            matchScore: 76, emoji: '💃', avatarBg: '#FFF0E8', interests: ['Dancing','Beach','Fitness'],      status: 'pending' }
-])
+const potentialMatches = ref([])
+
 
 const filters = reactive({ search: '', ageRange: '', location: '' })
 const resetFilters = () => { filters.search = ''; filters.ageRange = ''; filters.location = '' }

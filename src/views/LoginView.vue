@@ -15,9 +15,17 @@
             </div>
  
             <!-- Error Alert -->
-            <div class="alert dd-alert-error" v-if="errorMessage">
-              {{ errorMessage }}
-            </div>
+            <div class="alert dd-alert-error" v-if="errors.length">
+  <ul class="mb-0 ps-3">
+    <li v-for="err in errors" :key="err">
+      {{ err }}
+    </li>
+  </ul>
+</div>
+          <!-- Success Alert -->
+          <div class="alert dd-alert-success" v-if="successMessage">
+            {{ successMessage }}
+          </div>
  
             <!-- Form -->
             <form @submit.prevent="handleLogin" id="login_form">
@@ -84,13 +92,12 @@ const email = ref("");
 const password = ref("");
 const errorMessage = ref("");
 const successMessage = ref("");
-const errors = ref({});
+const errors = ref([]);
 
 function getCsrfToken() {
   fetch('/api/v1/csrf-token')
     .then((response) => response.json())
     .then((data) => {
-      console.log(data);
       csrf_token.value = data.csrf_token;
     })
 }
@@ -105,17 +112,18 @@ function handleLogin(){
     },
     body: formData
   })
-  .then(function(response){
+  .then(async function(response){
                     if (!response.ok) {
-                      return response.text().then(text => {
-                        throw new Error(text || "request failed");
-                      });
+                      const errorMessage = await response.json()
+
+                      throw errorMessage
+
                     }
                     return response.json();
                   })
                   .then(function (data){
-                    console.log("Success:", data);
-                    errorMessage.value = "";
+                    successMessage.value = "Login successful! Redirecting...";
+                    errors.value = [];
                     email.value = "";
                     password.value = "";
                     setToken(data.token);
@@ -123,9 +131,16 @@ function handleLogin(){
 
                   })
                   .catch(function(error){
-                    errorMessage.value = error.message;
-                    successMessage.value = "";
-                    console.error("Error:", error);
+                    if (error.errors) {
+                       errors.value = error.errors
+                    } else {
+                            errorMessage.value = error.message || "An error occurred during login. Please try again."
+                             errors.value = [errorMessage.value]
+                           }
+
+                    successMessage.value = ""
+
+                    console.error("Error:", error)
                   });
                   
 }

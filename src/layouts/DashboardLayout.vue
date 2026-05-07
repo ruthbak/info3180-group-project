@@ -18,13 +18,13 @@
 
       <!-- User Info -->
       <div class="dd-sidebar-user" v-if="!isCollapsed">
-        <div class="dd-sidebar-avatar">BB</div>
+        <div class="dd-sidebar-avatar">{{ userInitials }}</div>
         <div class="dd-sidebar-user-info">
-          <div class="dd-sidebar-name">Bob Builder</div>
+          <div class="dd-sidebar-name">{{ user?.first_name }} {{ user?.last_name }}</div>
           <div class="dd-sidebar-status">🟢 Online</div>
         </div>
       </div>
-      <div class="dd-sidebar-avatar-sm" v-else>BB</div>
+      <div class="dd-sidebar-avatar-sm" v-else>{{ userInitials }}</div>
 
       <!-- Nav Links -->
       <nav class="dd-sidebar-nav">
@@ -69,7 +69,7 @@
           <h6 class="dd-page-title mb-0">{{ pageTitle }}</h6>
         </div>
         <div class="dd-topbar-right">
-          <span class="dd-topbar-greeting">Welcome back, Bob! 👋</span>
+          <span class="dd-topbar-greeting">Welcome back, {{ user?.first_name }}! 👋</span>
         </div>
       </header>
 
@@ -84,13 +84,50 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { logout } from "@/services/auth";
+import { ref, computed, onMounted } from 'vue'
+import { logout, getToken } from "@/services/auth";
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
+onMounted(async () => {
+  try {
+    const token = getToken();
 
+    const response = await fetch("/api/v1/user/", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      response.text().then(text => {
+      throw new Error(text || "request failed");
+      });
+    }
+    
+    const data = await response.json();
+
+
+    user.value = data.user;
+
+
+  } catch (err) {
+    error.value = err.message;
+
+  }
+});
+const userInitials = computed(() => {
+
+  if (!user.value) return "?"
+
+  return (
+    (user.value.first_name?.[0] || '') +
+    (user.value.last_name?.[0] || '')
+  ).toUpperCase()
+})
 const router = useRouter()
 const route = useRoute()
-
+const user = ref(null);
+const error = ref("");
 const isCollapsed = ref(false)
 
 function toggleSidebar() {
@@ -103,7 +140,7 @@ const pageTitle = computed(() => {
     dashboard: 'Dashboard',
     matches: 'Your Matches',
     messages: 'Messages',
-    'profile-edit': 'Edit Profile',
+    profile: 'Edit Profile',
     reports: 'Reports'
   }
   return titles[route.name] || 'Dashboard'
