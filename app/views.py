@@ -162,7 +162,7 @@ def get_csrf():
 
 @app.route('/api/v1/auth/logout', methods=['POST'])
 @token_required  
-def logout(current_user):
+def logout():
     logout_user()  # This will clear the session cookie, but since we're using JWTs, the client should just discard the token
     return jsonify(message="Successfully logged out"), 200
 
@@ -305,11 +305,9 @@ def get_user():
     looking_for = db.session.execute(db.select(user_looking_for.looking_for).filter_by(user_id=userr.id)).scalar()
     return jsonify(user={
         'username': userr.username,
-        'email': userr.email,
         'first_name': first_name,
         'last_name':  last_name,
         'age': age,
-        'visibility': userr.visibility,
         'location': location,
         'bio': bio,
         'looking_for': looking_for
@@ -473,4 +471,4 @@ def add_header(response):
 @app.errorhandler(404)
 def page_not_found(error):
     """Custom 404 page."""
-    return jsonify(message="Sorry, the requested resource was not found"), 404
+    return jsonify(message="The requested resource was not found"), 404
