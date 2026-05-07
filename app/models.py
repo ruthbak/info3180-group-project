@@ -9,18 +9,28 @@ class user(db.Model, UserMixin):
     username = db.Column(db.String(64), index=True, unique=True, nullable=False)
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    visibility = db.Column(db.Boolean, index=True)
+    visibility = db.Column(db.Boolean, index=True, default=True)  # True means visible to others, False means hidden
     joined_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_seen = db.Column(db.DateTime, index=True, default=datetime.utcnow)
 
     # Relationships
-    profile = db.relationship('UserProfile', backref='user', uselist=False, cascade="all, delete-orphan")
-    location = db.relationship('UserLocation', backref='user', uselist=False, cascade="all, delete-orphan")
-    preferences = db.relationship('UserPreferences', backref='user', uselist=False)
-    looking_for = db.relationship('UserLookingFor', backref='user', uselist=False)
-    photos = db.relationship('UserPhoto', backref='user', lazy='dynamic')
-    hobbies = db.relationship('Hobby', secondary='user_hobbies', backref=db.backref('users', lazy='dynamic'))
+    profile = db.relationship('user_profile', backref='user', uselist=False, cascade="all, delete-orphan")
+    location = db.relationship('user_location', backref='user', uselist=False, cascade="all, delete-orphan")
+    preferences = db.relationship('user_preferences', backref='user', uselist=False)
+    looking_for = db.relationship('user_looking_for', backref='user', uselist=False)
+    photos = db.relationship('user_photo', backref='user', lazy='dynamic')
+    hobbies = db.relationship('hobby', secondary='user_hobbies', backref=db.backref('users', lazy='dynamic'))
+
+    def __init__(self, username, email, password_hash, visibility=True, joined_at=None, updated_at=None, last_seen=None):
+        self.username = username
+        self.email = email
+        self.password_hash = password_hash
+        self.visibility = visibility
+        self.joined_at = joined_at or datetime.utcnow()
+        self.updated_at = updated_at or datetime.utcnow()
+        self.last_seen = last_seen or datetime.utcnow()
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -100,16 +110,18 @@ class user_photo(db.Model):
     def __repr__(self):
         return '<User Photo {}>'.format(self.photo_url)
     
-class swipe(db.Model):
-    __tablename__ = 'swipe'
+class likes(db.Model):
+    __tablename__ = 'likes'
     id = db.Column(db.Integer, primary_key=True)
     swiper_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     swipee_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     action = db.Column(db.String(16), index=True)
-    swiped_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    action_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('swiper_id','swipee_id',name='unique_like'),)
 
     def __repr__(self):
-        return '<Swipe {}>'.format(self.action)
+        return '<Like {}>'.format(self.action)
     
 class match(db.Model):
     __tablename__ = 'matches'
@@ -119,6 +131,8 @@ class match(db.Model):
     matched_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     status = db.Column(db.String(16), index=True)
 
+    __table_args__ = (db.UniqueConstraint('user1_id','user2_id',name='unique_match'),)
+
     def __repr__(self):
         return '<Match {}>'.format(self.id)
     
@@ -127,9 +141,12 @@ class conversation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user1_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     user2_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
-    started_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    last_message = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
 
-    messages = db.relationship('Message', backref='conversation', lazy='dynamic')
+    __table_args__ = (db.UniqueConstraint('user1_id','user2_id',name='unique_conversation'),)
+
+    messages = db.relationship('message', backref='conversation', lazy='dynamic')
 
     def __repr__(self):
         return '<Conversation {}>'.format(self.id)
