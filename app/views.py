@@ -95,9 +95,14 @@ def register():
             dob=form.dob.data,
             gender=form.gender.data,
             description="",
-            photo = url_for('static', filename='default.jpg')
         )
         db.session.add(new_profile)
+
+        new_user_photo = user_photo(
+            user_id=new_user.id,
+            photo_url = url_for('static', filename='default.jpg')
+        )
+        db.session.add(new_user_photo)
 
         new_looking_for = user_looking_for(
             user_id=new_user.id,
@@ -219,7 +224,6 @@ def get_users():
 @token_required
 def get_user():
     userr = g.current_user
-
     if not userr:
         return jsonify(message="User not found"), 404
     first_name = db.session.execute(db.select(user_profile.first_name).filter_by(user_id=userr.id)).scalar()
@@ -232,6 +236,7 @@ def get_user():
     location = db.session.execute(db.select(user_location.location_name).filter_by(user_id=userr.id)).scalar()
     bio = db.session.execute(db.select(user_profile.description).filter_by(user_id=userr.id)).scalar()
     looking_for = db.session.execute(db.select(user_looking_for.looking_for).filter_by(user_id=userr.id)).scalar()
+    profile_photo = db.session.execute(db.select(user_photo.photo_url).filter_by(user_id=userr.id)).scalar()
     return jsonify(user={
         'username': userr.username,
         'first_name': first_name,
@@ -239,7 +244,8 @@ def get_user():
         'age': age,
         'location': location,
         'bio': bio,
-        'looking_for': looking_for
+        'looking_for': looking_for,
+        'profile_photo': profile_photo
     }), 200
 
 
@@ -257,24 +263,60 @@ def profile():
 
         if existing_profile:
             # Update only fields that were submitted
-            if form.first_name.data:
-                existing_profile.first_name = form.first_name.data
-            if form.last_name.data:
-                existing_profile.last_name = form.last_name.data
-            if form.description.data:
-                existing_profile.description = form.description.data
+            if form.firstname.data:
+                existing_profile.first_name = form.firstname.data
+            if form.lastname.data:
+                existing_profile.last_name = form.lastname.data
+            if form.bio.data:
+                existing_profile.description = form.bio.data
         else:
             # Create a new profile if one doesn't exist yet
             existing_profile = user_profile(
                 user_id=current_user.id,
-                first_name=form.first_name.data or "",
-                last_name=form.last_name.data or "",
+                first_name=form.firstname.data or "",
+                last_name=form.lastname.data or "",
                 dob=form.dob.data,
                 gender=form.gender.data or "",
-                description=form.description.data or ""
+                description=form.bio.data or ""
             )
             db.session.add(existing_profile)
 
+        if form.interests.data:
+            # first add the interest/hobby to the hobby table if it doesn't exist, then add to user_hobbies attached to the user id. the hobbies submitted will be a comma-separated string, so we need to split it and process each one separately
+            hobby_names = [name.strip().lower() for name in form.interests.data.split(',')]
+            for hobby_name in hobby_names:
+                hobby_entry = db.session.execute(db.select(hobby).filter_by(hobby_name=hobby_name)).scalar()
+                if not hobby_entry:
+                    hobby_entry = hobby(hobby_name=hobby_name)
+                    db.session.add(hobby_entry)
+                db.session.flush()  # to get the id of the new hobby
+            # Now add to user_hobbies if not already added
+                user_hobby_entry = db.session.execute(db.select(user_hobbies).filter_by(user_id=current_user.id, hobby_id=hobby_entry.id)).scalar()
+                if not user_hobby_entry:
+                    user_hobby_entry = user_hobbies(user_id=current_user.id, hobby_id=hobby_entry.id)
+                    db.session.add(user_hobby_entry)
+                    db.session.flush()  # to get the id of the new user_hobby entry
+
+        existing_preference = db.session.execute(db.select(user_preferences).filter_by(user_id=current_user.id)).scalar()
+        if existing_preference:
+            if form.interested_in.data:
+                existing_preference.gender_preference = form.interested_in.data
+            if form.min_age.data: 
+                existing_preference.min_age = form.min_age.data
+            if form.max_age.data:
+                existing_preference.max_age = form.max_age.data
+            if form.max_distance.data:
+                existing_preference.max_distance = form.max_distance.data
+        else:
+            existing_preference = user_preferences(
+                user_id=current_user.id,
+                gender_preference=form.interested_in.data or "",
+                min_age=form.min_age.data or 18,
+                max_age=form.max_age.data or 18,
+                max_distance=form.max_distance.data or 1
+            )
+
+        db.session.add(existing_preference)
         if form.photo.data:
             filename  = secure_filename(form.photo.data.filename)
             filepath  = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -323,7 +365,7 @@ def get_profile(username):
  
     location = db.session.execute(db.select(user_location).filter_by(user_id=target_user.id)).scalar()
 
-    if target_user.visibility == False and target_user.id != db.session.execute(db.select(matches).filter_by(id=g.current_user.id)).scalar().id:
+    if target_user.visibility == False and target_user.id != db.session.execute(db.select(match).filter_by(id=g.current_user.id)).scalar().id:
         return jsonify(profile={'username': target_user.username,
         'first_name': profile.first_name,
         'last_name': profile.last_name,
@@ -437,13 +479,13 @@ def get_likes():
             user_profile.dob,
             user_profile.gender,
             user_photo.photo_url,
-            like.created_at.label('liked_at')
+            likes.created_at.label('liked_at')
         )
-        .join(like, like.liked_user_id == user.id)
+        .join(likes, likes.liked_user_id == user.id)
         .join(user_profile, user_profile.user_id == user.id)
         .outerjoin(user_photo, user_photo.user_id == user.id)
-        .filter(like.user_id == current_user.id)
-        .order_by(like.created_at.desc())
+        .filter(likes.user_id == current_user.id)
+        .order_by(likes.created_at.desc())
         .all()
     )
  
@@ -476,18 +518,18 @@ def get_messageable():
             user_profile.first_name,
             user_profile.last_name,
             user_photo.photo_url,
-            matches.id.label('match_id'),
-            matches.matched_at
+            match.id.label('match_id'),
+            match.matched_at
         )
-        .join(matches, db.or_(
-            db.and_(matches.user1_id == current_user.id, matches.user2_id == user.id),
-            db.and_(matches.user2_id == current_user.id, matches.user1_id == user.id)
+        .join(match, db.or_(
+            db.and_(match.user1_id == current_user.id, match.user2_id == user.id),
+            db.and_(match.user2_id == current_user.id, match.user1_id == user.id)
         ))
         .join(user_profile, user_profile.user_id == user.id)
         .outerjoin(user_photo, user_photo.user_id == user.id)
         .filter(
             user.id != current_user.id,
-            matches.status == 'active'
+            match.status == 'active'
         )
         .all()
     )
@@ -498,15 +540,15 @@ def get_messageable():
     matched_user_ids = [m.id for m in matched_users]
  
     # Batch fetch all existing conversations for these users
-    existing_convos = db.session.execute(db.select(conversations).filter(
+    existing_convos = db.session.execute(db.select(conversation).filter(
             db.or_(
                 db.and_(
-                    conversations.user1_id == current_user.id,
-                    conversations.user2_id.in_(matched_user_ids)
+                    conversation.user1_id == current_user.id,
+                    conversation.user2_id.in_(matched_user_ids)
                 ),
                 db.and_(
-                    conversations.user2_id == current_user.id,
-                    conversations.user1_id.in_(matched_user_ids)
+                    conversation.user2_id == current_user.id,
+                    conversation.user1_id.in_(matched_user_ids)
                 )
             )
         )
@@ -724,7 +766,7 @@ def like_user(username, match_list):
  
     if return_like:
         # Mutual like — create an active match
-        new_match = matches(
+        new_match = match(
             user1_id=current_user.id,
             user2_id=target_user.id,
             status='active',
@@ -761,12 +803,12 @@ def unlike_user(username):
  
     # If a match exists from a prior mutual like, deactivate it
     existing_match = db.session.execute(
-        db.select(matches).filter(
+        db.select(match).filter(
             db.or_(
-                db.and_(matches.user1_id == current_user.id, matches.user2_id == target_user.id),
-                db.and_(matches.user1_id == target_user.id,  matches.user2_id == current_user.id)
+                db.and_(match.user1_id == current_user.id, match.user2_id == target_user.id),
+                db.and_(match.user1_id == target_user.id,  match.user2_id == current_user.id)
             ),
-            matches.status == 'active'
+            match.status == 'active'
         )
     ).scalar()
     if existing_match:
@@ -804,27 +846,27 @@ def send_message(username):
  
     # Verify an active match exists
     existing_match = db.session.execute(
-        db.select(matches).filter(
+        db.select(match).filter(
             db.or_(
-                db.and_(matches.user1_id == current_user.id, matches.user2_id == target_user.id),
-                db.and_(matches.user1_id == target_user.id, matches.user2_id == current_user.id)
+                db.and_(match.user1_id == current_user.id, match.user2_id == target_user.id),
+                db.and_(match.user1_id == target_user.id, match.user2_id == current_user.id)
             ),
-            matches.status == 'active'
+            match.status == 'active'
         )
     ).scalar()
     if not existing_match:
         return jsonify(message="You can only message your matches"), 403
  
     # Find or create conversation
-    conversation = db.session.execute(db.select(conversations).filter(
+    conversations = db.session.execute(db.select(conversation).filter(
             db.or_(
-                db.and_(conversations.user1_id == current_user.id, conversations.user2_id == target_user.id),
-                db.and_(conversations.user1_id == target_user.id, conversations.user2_id == current_user.id)
+                db.and_(conversation.user1_id == current_user.id, conversation.user2_id == target_user.id),
+                db.and_(conversation.user1_id == target_user.id, conversation.user2_id == current_user.id)
             )
         )).scalar()
  
-    if not conversation:
-        conversation = conversations(
+    if not conversations:
+        conversations = conversation(
             user1_id=current_user.id,
             user2_id=target_user.id,
             started_at=datetime.datetime.utcnow()
@@ -832,7 +874,7 @@ def send_message(username):
         db.session.add(conversation)
         db.session.flush()
  
-    new_message = messages(
+    new_message = message(
         conversation_id=conversation.id,
         sender_id=current_user.id,
         message_text=message_text,
@@ -860,20 +902,20 @@ def get_messages(conversation_id):
     current_user = g.current_user
  
     # Verify ownership in the same query — no separate permission check needed
-    conversation = db.session.execute(
-        db.select(conversations).filter(conversations.id == conversation_id,
+    conversations = db.session.execute(
+        db.select(conversation).filter(conversation.id == conversation_id,
             db.or_(
-                conversations.user1_id == current_user.id,
-                conversations.user2_id == current_user.id
+                conversation.user1_id == current_user.id,
+                conversation.user2_id == current_user.id
             )
     )).scalar()
-    if not conversation:
+    if not conversations:
         return jsonify(message="Conversation not found"), 404
  
     all_messages = db.session.execute(
-        db.select(messages)
+        db.select(message)
         .filter_by(conversation_id=conversation_id)
-        .order_by(messages.sent_at.asc())
+        .order_by(message.sent_at.asc())
     ).scalars().all()
  
     if not all_messages:
@@ -920,11 +962,11 @@ def add_match(username):
         return jsonify(message="You cannot match yourself"), 400
  
     # Guard against duplicates
-    existing = db.session.execute(db.select(matches).filter_by(user_id=current_user.id,matched_user_id=target_user.id)).scalar()
+    existing = db.session.execute(db.select(match).filter_by(user_id=current_user.id,matched_user_id=target_user.id)).scalar()
     if existing:
         return jsonify(message="User is already bookmarked"), 409
  
-    new_match = matches(
+    new_match = match(
         user_id=current_user.id,
         matched_user_id=target_user.id,
         created_at=datetime.datetime.utcnow()
@@ -945,7 +987,7 @@ def remove_match(username):
     if not target_user:
         return jsonify(message="User not found"), 404
  
-    existing = db.session.execute(db.select(matches).filter_by(user_id=current_user.id,matched_user_id=target_user.id)).scalar()
+    existing = db.session.execute(db.select(match).filter_by(user_id=current_user.id,matched_user_id=target_user.id)).scalar()
     if not existing:
         return jsonify(message="Match not found"), 404
  
