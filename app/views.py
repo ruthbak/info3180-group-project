@@ -471,3 +471,4 @@ def add_header(response):
 @app.errorhandler(404)
 def page_not_found(error):
     """Custom 404 page."""
+    return jsonify(message="The requested resource was not found"), 404
