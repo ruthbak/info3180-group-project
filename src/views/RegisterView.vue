@@ -200,7 +200,6 @@ function getCsrfToken() {
   fetch('/api/v1/csrf-token')
     .then((response) => response.json())
     .then((data) => {
-      console.log(data);
       csrf_token.value = data.csrf_token;
     })
 }
@@ -224,14 +223,13 @@ function getLocation() {
       latitude.value = position.coords.latitude
       longitude.value = position.coords.longitude
       locationError.value = ""
-      console.log("Location:", latitude.value, longitude.value)
       const locationName = await getLocationName(latitude.value, longitude.value)
       location_name.value = locationName.village || locationName.town || locationName.city || "Unknown";  
-      //console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
+
     },
     (error) => {
       locationError.value = "Location permission denied"
-      console.error(error)
+
     }
   )
 }

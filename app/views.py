@@ -100,7 +100,7 @@ def register():
 
         new_user_photo = user_photo(
             user_id=new_user.id,
-            photo_url = url_for('static', filename='default.jpg')
+            photo_url = url_for('static', filename='images/default.jpg')
         )
         db.session.add(new_user_photo)
 
