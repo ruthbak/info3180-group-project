@@ -9,23 +9,23 @@
 | Darrin Belamy @Da-Bell | Frontend Lead | Manages UI/UX, Vue 3 components |
 
 
-## Project Description
+### Project Description
 A DATING APPLICATION web platform (called DriftDater) that allows registered users to create detailed profiles, discover compatible matches, and initiate connections with other users. The application will be built using Vue 3 frontend framework and Flask backend API, with a database to store user profiles and matching information.
 
-## Features
-### 🚀 Key Features
-- [ ] **Secure Authentication**: User registration and login with email validation and hashing.
-- [ ] **Rich Profile Management**: Profiles including bio, location, and multiple interest tags.
-- [ ] **Dynamic Image Uploads**: Built-in capability for users to upload and manage profile pictures.
-- [ ] **Simple Matching Algorithm**: Get potential matches based on location, age range, preferences and shared interests/hobbies an what each user is looking for in a relationship
-- [ ] **Interactive Discovery**: "Like/Dislike/Pass" functionality with mutual match detection.
-- [ ] **Search & Filtering**: Tools to filter by name, age range, hobby, location name (e.g half way tree) (only for matched interests)
-- [ ] **Messaging**: Persistent chat for matched users with reactive Vue.js updates.
-- [ ] **Match Notifications**: Instant alerts when a mutual connection is established.
-- [ ] **Bookmarks & Favorites**: Capability to save and organize profiles for quick access.
+### Features
+#### 🚀 Key Features
+- [X] **Secure Authentication**: User registration and login with email validation and hashing.
+- [X] **Profile Management**: Profiles including bio, location, and multiple interest tags.
+- [X] **Dynamic Image Uploads**: Built-in capability for users to upload and manage profile pictures.
+- [X] **Simple Matching Algorithm**: Get potential matches based on location, age range, preferences and shared interests/hobbies an what each user is looking for in a relationship
+- [X] **Interactive Discovery**: "Like/Dislike/Pass" functionality with mutual match detection.
+- [X] **Search & Filtering**: Tools to filter by name, age range, hobby, location name (e.g half way tree) (only for matched interests)
+- [X] **Messaging**: Persistent chat for matched users with reactive Vue.js updates.
+- [X] **Match Notifications**: Instant alerts when a mutual connection is established.
+- [X] **Bookmarks & Favorites**: Capability to save and organize profiles for quick access.
 
 
-## 🛠️ Tech Stack
+### 🛠️ Tech Stack
 | Category | Technology | Key Implementations |
 | :--- | :--- | :--- |
 | **Backend** | **Flask (Python)** | RESTful API, Flask-Migrate, CORS, & Input Validation |
@@ -35,24 +35,24 @@ A DATING APPLICATION web platform (called DriftDater) that allows registered use
 | **UI/UX** | **Component-based** | Reusable Components, Form Validation, & Loading States |
 
 
-## SetUp Instructions 
+### SetUp Instructions 
 
-## Prerequisites:
+### Prerequisites:
 - Python 3.14 +
 - Node.js 18+
 - npm
 - Postgresql
 - Git Bash (optional for a terminal)
 
-## Steps
-### 1. Clone Repository 
+### Steps
+#### 1. Clone Repository 
 
 ```
 git clone https://github.com/ruthbak/info3180-group-project.git
 cd info3180-group-project
 ```
-## Backend SetUp using Flask
-### 2. Create and activate a virtual environment 
+### Backend SetUp using Flask
+#### 2. Create and activate a virtual environment 
 ```
 #Windows
 python -m venv venv
@@ -62,43 +62,43 @@ python -m venv venv
 python 3 -m venv venv
 source /venv/bin/activate
 ```
-### 3. Install dependencies 
+#### 3. Install dependencies 
 ```
 #Dependency installation
 pip install -r requirements.txt
 ```
 
-### 4. Create a .env in the project root and configure
+#### 4. Create a .env in the project root and configure
 ```
 SECRET_KEY = 'yourkey'
 DATABASE_URL=postgresql://username:password@host/databasename
 ```
 
-### 5. Initialise databse if no migrations folder is present
+#### 5. Initialise databse if no migrations folder is present
 ```
 flask --app app db init
 flask --app app db migrate
 flask --app app db upgrade
 ```
-### 6. Run app
+#### 6. Run app
 ```
 flask --app app run
 ```
-## Frontend SetUp
-### 7. Install npm and run
+### Frontend SetUp
+#### 7. Install npm and run
 ```
 npm install
 npm run dev
 ```
 
-## 📡 API Endpoints Documentation
+### 📡 API Endpoints Documentation
 - Endpoints are at `https://localhost:5000`. 
 - Flask cookie sessions are used for authentication (returns `401` if there is no login).
 - JWT Tokens required for proteted routes.
 
 ---
 
-## Base URL
+#### Base URL
 
 ```
 http://localhost:5000/api
@@ -112,7 +112,7 @@ https://api.yourdomain.com/api
 
 ---
 
-## Authentication
+#### Authentication
 
 Most endpoints require authentication using a Bearer Token.
 
@@ -135,7 +135,7 @@ GET `/profile/<username>` :Get public profile by username.
 ----
 
 
-### Header Format
+#### Header Format
 
 ```
 Authorization: Bearer <your_token>
@@ -144,12 +144,12 @@ Content-Type: application/json
 
 ---
 
-## 🔐 Auth Endpoints
-### POST `/login`
+### 🔐 Auth Endpoints
+#### POST `/login`
 
 Log in an existing user.
 
-### Request Body
+#### Request Body
 
 ```json
 {
@@ -158,7 +158,7 @@ Log in an existing user.
 }
 ```
 
-### Success Response — `200 OK`
+#### Success Response — `200 OK`
 
 ```json
 {
@@ -171,11 +171,11 @@ Log in an existing user.
 ```
 #### Errors : `400` missing fields and `401` for Invalid credentials
 
-### POST `/register`
+#### POST `/register`
 
 Register a new user.
 
-### Request Body
+#### Request Body
 
 ```json
 {
@@ -190,7 +190,7 @@ Register a new user.
 }
 ```
 
-### Success Response — `201 Created`
+#### Success Response — `201 Created`
 
 ```json
 {
@@ -211,18 +211,14 @@ Register a new user.
 
 ---
 
+### Deployment URL: https://driftdater-c74h.onrender.com
+
+---
+
 ### Known issues/ limitations
-- No password resent implemented
+- No password reset implemented
 - No remember me feature is implemented
 - Only active matches may be searched
-- No real time matching
-
-
-
-
-
-
-  
-
-
-  
+- Profile photo does not load on the sidebar or in matches section
+- Location is not displayed
+- Users cannot delete themselves or their matches
