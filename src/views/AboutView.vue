@@ -136,7 +136,7 @@ export default {
         { name: 'Daniel Bingham', role: 'CEO & Founder', avatar: '👨‍💻' },
         { name: 'Rashene Dillon', role: 'Major Programmer', avatar: '🛡️' },
         { name: 'Ruth-Ann Allen', role: 'Co-Founder', avatar: '👩‍💻' },
-        { name: 'Sukanayna Hoo', role: 'Community Lead', avatar: '💬' },
+        { name: 'Sukanayna Hoo', role: 'Community Lead', avatar: '🌟' },
         { name: 'Darrin Bellamy', role: 'Assistant Programmer', avatar: '🌟' },
         { name: 'And More...', role: ' ', avatar: ' ' }
       ]
