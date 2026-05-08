@@ -31,7 +31,7 @@
  
         <!-- Username -->
         <div class="form-group">
-          <label class="form-label required">Username</label>
+          <label class="form-label">Username</label>
           <input
             type="text"
             v-model="formData.username"
@@ -45,7 +45,7 @@
  
         <!-- First Name -->
         <div class="form-group">
-          <label class="form-label required">First Name</label>
+          <label class="form-label">First Name</label>
           <input
             type="text"
             v-model="formData.firstname"
@@ -59,7 +59,7 @@
  
         <!-- Last Name -->
         <div class="form-group">
-          <label class="form-label required">Last Name</label>
+          <label class="form-label">Last Name</label>
           <input
             type="text"
             v-model="formData.lastname"
@@ -71,9 +71,9 @@
           <p class="input-hint">Only letters allowed, 2-50 characters</p>
         </div>
  
-        <!-- Interests -->
+        <!-- Hobbies -->
         <div class="form-group">
-          <label class="form-label">Interests</label>
+          <label class="form-label">Hobbies</label>
           <input
             type="text"
             v-model="formData.interests"
@@ -82,7 +82,7 @@
             placeholder="e.g., Music, Sports, Travel, Photography"
           />
           <p v-if="errors.interests" class="error-message">{{ errors.interests }}</p>
-          <p class="input-hint">Comma-separated interests (max. 200 characters)</p>
+          <p class="input-hint">Comma-separated hobbies (max. 200 characters)</p>
         </div>
  
         <!-- Bio -->
@@ -101,7 +101,7 @@
  
         <!-- Looking For -->
         <div class="form-group">
-          <label class="form-label required">Looking For</label>
+          <label class="form-label">Looking For</label>
           <select v-model="formData.lookingfor" class="dd-input" :class="{ 'input-error': errors.lookingfor }">
             <option value="dating">Dating</option>
             <option value="friendship">Friendship</option>
@@ -167,7 +167,7 @@
         <!-- Interested In (Gender) -->
         <div class="form-group">
           <label class="form-label required">Interested In</label>
-          <div class="radio-group">
+          <div class="radio-group" :class="{ 'radio-group-error': errors.interested_in }">
             <label class="radio-label">
               <input type="radio" value="male" v-model="formData.interested_in" />
               <span>Male</span>
@@ -177,7 +177,7 @@
               <span>Female</span>
             </label>
           </div>
-          <p v-if="errors.interested" class="error-message">{{ errors.interested }}</p>
+          <p v-if="errors.interested_in" class="error-message">{{ errors.interested_in }}</p>
         </div>
  
         <!-- Form Actions -->
@@ -225,7 +225,7 @@ const props = defineProps({
       bio: '',
       interests: '',
       lookingfor: 'dating',
-      interested: 'male',
+      interested_in: '',
       minage: null,
       maxage: null,
       maxdistance: null
@@ -243,7 +243,7 @@ const formData = reactive({
   bio: '',
   interests: '',
   lookingfor: 'dating',
-  interested: 'male',
+  interested_in: '',
   minage: null,
   maxage: null,
   maxdistance: null
@@ -289,6 +289,13 @@ function handleSubmit() {
   isSubmitting.value = true
   message.value = ''
   Object.keys(errors).forEach(key => delete errors[key])
+
+  if (!formData.interested_in) {
+    errors.interested_in = 'Please select who you are interested in.'
+    showMessage('Please select who you are interested in.', 'alert-error')
+    isSubmitting.value = false
+    return
+  }
  
   const payload = new FormData()
   payload.append('username',      formData.username)
@@ -347,7 +354,8 @@ function handleSubmit() {
         const parsed = JSON.parse(error.message)
         if (parsed.errors) {
           Object.entries(parsed.errors).forEach(([field, messages]) => {
-            errors[field] = Array.isArray(messages) ? messages[0] : messages
+            const key = field === 'interested' ? 'interested_in' : field
+            errors[key] = Array.isArray(messages) ? messages[0] : messages
           })
         }
         showMessage(parsed.message || 'Please fix the errors above', 'alert-error')
@@ -582,6 +590,12 @@ function showMessage(msg, type) {
   display: flex;
   gap: 1.5rem;
   padding: 0.5rem 0;
+}
+
+.radio-group-error {
+  border: 1px solid #e74c3c;
+  border-radius: 10px;
+  padding: 0.75rem;
 }
  
 .radio-label {

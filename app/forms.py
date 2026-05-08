@@ -30,7 +30,7 @@ class ProfileForm(FlaskForm):
     lastname= StringField('Last Name', validators=[Optional(), Length(min=2, max=50), regexp('^[A-Za-z]+$', 0, 'Last name must contain only letters')])
     bio = TextAreaField('Bio', validators=[Optional(), Length(max=500)])
     interests = StringField('Interests', validators=[Optional(), Length(max=200)])
-    interested_in = StringField('Interested In',validators=[Optional(), Length(min=4,max=6), regexp('^[A-Za-z]+$', 0, 'Interested in must contain only letters')])
+    interested_in = StringField('Interested In', validators=[InputRequired(message='Please select who you are interested in'), Length(min=4,max=6), regexp('^[A-Za-z]+$', 0, 'Interested in must contain only letters')])
     min_age = IntegerField('Minimum Age',validators=[Optional(),NumberRange(min=18, max=100, message='Minimum age must be between 18 and 100')])
     max_age = IntegerField('Maximum Age',validators=[Optional(),NumberRange(min=18, max=100, message='Maximum age must be between 18 and 100')])
     photo = FileField('Profile Picture', validators=[Optional(),FileAllowed(['jpg', 'jpeg', 'png'], 'Images only!')])

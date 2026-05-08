@@ -39,7 +39,9 @@
           <span class="dd-nav-label" v-if="!isCollapsed">Matches</span>
         </RouterLink>
         <RouterLink to="/messages" class="dd-nav-link" :title="isCollapsed ? 'Messages' : ''">
-          <span class="dd-nav-icon"><i class="bi bi-chat-square-dots"></i></span>
+          <span class="dd-nav-icon" :class="{ 'dd-nav-icon-unread': hasUnreadMessages }">
+            <i :class="messageIconClass"></i>
+          </span>
           <div class="dd-nav-chat-wrap">
           <span class="dd-nav-label" v-if="!isCollapsed">Messages</span>
 
@@ -51,7 +53,7 @@
           </span>
         </div>
         </RouterLink>
-        <RouterLink to="/profile/edit" class="dd-nav-link" :title="isCollapsed ? 'My Profile' : ''">
+        <RouterLink :to="myProfileRoute" class="dd-nav-link" :title="isCollapsed ? 'My Profile' : ''">
           <span class="dd-nav-icon"><i class="bi bi-person"></i></span>
           <span class="dd-nav-label" v-if="!isCollapsed">My Profile</span>
         </RouterLink>
@@ -92,9 +94,11 @@
 
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { logout, getToken } from "@/services/auth";
-import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+let unreadPoller = null
+
 onMounted(async () => {
   try {
     const token = getToken();
@@ -122,6 +126,13 @@ onMounted(async () => {
     error.value = err.message;
 
   }
+
+  await fetchUnreadMessageCount();
+  unreadPoller = setInterval(fetchUnreadMessageCount, 1500);
+});
+
+onUnmounted(() => {
+  if (unreadPoller) clearInterval(unreadPoller);
 });
 const userInitials = computed(() => {
 
@@ -132,15 +143,66 @@ const userInitials = computed(() => {
     (user.value.last_name?.[0] || '')
   ).toUpperCase()
 })
-const router = useRouter()
 const route = useRoute()
 const user = ref(null);
 const error = ref("");
 const isCollapsed = ref(false)
+const totalUnreadChats = ref(0)
+const hasUnreadMessages = computed(() => totalUnreadChats.value > 0)
+const messageIconClass = computed(() => (
+  hasUnreadMessages.value ? 'bi bi-chat-square-dots-fill' : 'bi bi-chat-square-dots'
+))
+
+const userName = computed(() => {
+  if (!user.value) return 'User'
+
+  const fullName = [user.value.first_name, user.value.last_name]
+    .filter(Boolean)
+    .join(' ')
+
+  return fullName || user.value.username || 'User'
+})
+
+const myProfileRoute = computed(() => {
+  if (!user.value?.username) return { name: 'profile-edit' }
+
+  return {
+    name: 'profile-view',
+    params: { username: user.value.username }
+  }
+})
 
 function toggleSidebar() {
   isCollapsed.value = !isCollapsed.value
 }
+
+async function fetchUnreadMessageCount() {
+  try {
+    const token = getToken();
+    const response = await fetch('/api/v1/matches', {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const matches = data.matches || [];
+    totalUnreadChats.value = data.total_unread ?? matches.reduce((total, match) => {
+      return total + (Number(match.unread_count) || 0);
+    }, 0);
+  } catch (err) {
+    console.error('Failed to fetch unread message count:', err);
+  }
+}
+
+watch(
+  () => route.name,
+  () => {
+    setTimeout(fetchUnreadMessageCount, route.name === 'messages' ? 700 : 0);
+  }
+)
 
 // Dynamic page title based on current route
 const pageTitle = computed(() => {
@@ -149,7 +211,7 @@ const pageTitle = computed(() => {
     matches: 'Your Matches',
     messages: 'Messages',
     'profile-view': 'Profile',
-    profile: 'Edit Profile'
+    'profile-edit': 'Edit Profile'
   }
   return titles[route.name] || 'Dashboard'
 })
@@ -308,6 +370,12 @@ const pageTitle = computed(() => {
   flex-shrink: 0;
   width: 20px;
   text-align: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.dd-nav-icon-unread {
+  color: #fff;
+  transform: scale(1.08);
 }
 
 .dd-nav-label { white-space: nowrap; }

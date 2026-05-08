@@ -95,15 +95,8 @@ def register():
             last_name=form.lastname.data,
             dob=form.dob.data,
             gender=form.gender.data,
-            description="",
         )
         db.session.add(new_profile)
-
-        new_user_photo = user_photo(
-            user_id=new_user.id,
-            photo_url = url_for('static', filename='images/default.jpg')
-        )
-        db.session.add(new_user_photo)
 
         new_looking_for = user_looking_for(
             user_id=new_user.id,
@@ -181,7 +174,7 @@ def uploaded_photo_url(filename):
 
 def display_photo_url(photo_url):
     if not photo_url:
-        return url_for('static', filename='images/default.jpg', _external=True)
+        return None
     if photo_url.startswith('/static/uploads/'):
         filename = photo_url.replace('/static/uploads/', '', 1)
         return uploaded_photo_url(filename)
@@ -264,7 +257,7 @@ def get_users():
                 "gender":      row.gender,
                 "description": row.description,
                 "looking_for": lf_map.get(row.id, []),
-                "photo":       photo_map.get(row.id) or url_for('static', filename='default.jpg'),
+                "photo":       display_photo_url(photo_map.get(row.id)),
                 "joined_at":   row.joined_at.strftime('%Y-%m-%d') if row.joined_at else None
             }
             for row in results
@@ -326,11 +319,9 @@ def profile():
             # Create a new profile if one doesn't exist yet
             existing_profile = user_profile(
                 user_id=current_user.id,
-                first_name=form.firstname.data or "",
-                last_name=form.lastname.data or "",
-                dob=form.dob.data,
-                gender=form.gender.data or "",
-                description=form.bio.data or ""
+                first_name=form.firstname.data,
+                last_name=form.lastname.data,
+                description=form.bio.data
             )
             db.session.add(existing_profile)
 
@@ -363,10 +354,10 @@ def profile():
         else:
             existing_preference = user_preferences(
                 user_id=current_user.id,
-                gender_preference=form.interested_in.data or "",
-                min_age=form.min_age.data or 18,
-                max_age=form.max_age.data or 18,
-                max_distance=form.max_distance.data or 1
+                gender_preference=form.interested_in.data,
+                min_age=form.min_age.data,
+                max_age=form.max_age.data,
+                max_distance=form.max_distance.data
             )
 
         db.session.add(existing_preference)
@@ -455,8 +446,8 @@ def get_profile(username):
         'age': calculate_age(profile.dob) if profile.dob else None,
         'gender': profile.gender,
         'description': profile.description,
-        'bio': profile.description or "",
-        'about': profile.description or "",
+        'bio': profile.description,
+        'about': profile.description,
         'location': location.location_name if location else None,
         'looking_for': looking_for,
         'lookingFor': ", ".join(looking_for),
@@ -641,11 +632,11 @@ def search():
             "age": age,
             "gender": row.gender,
             "description": row.description,
-            "bio": row.description or "",
+            "bio": row.description,
             "location": row.location_name,
             "looking_for": lf_map.get(row.id, []),
             "lookingFor": ", ".join(lf_map.get(row.id, [])),
-            "photo": photo_map.get(row.id) or url_for('static', filename='default.jpg'),
+            "photo": display_photo_url(photo_map.get(row.id)),
             "joined_at": row.joined_at.strftime('%Y-%m-%d') if row.joined_at else None,
             "interests": hobby_names,
             "common_hobbies": [
@@ -866,12 +857,12 @@ def get_possible_matches():
             "age": c_age,
             "gender": c.gender,
             "description": c.description,
-            "bio": c.description or "",
+            "bio": c.description,
             "location": c.location_name,
             "distance_km": round(distance, 1),
             "looking_for": c_looking_for_list,
             "lookingFor": ", ".join(c_looking_for_list),
-            "photo": photos_map.get(c.id) or url_for('static', filename='default.jpg'),
+            "photo": display_photo_url(photos_map.get(c.id)),
             "common_looking_for": list(common_lf),
             "common_hobbies": common_hobby_names,
             "interests": common_hobby_names,
@@ -1044,7 +1035,7 @@ def get_matches():
     )
 
     if not matched_users:
-        return jsonify(matches=[], total=0), 200
+        return jsonify(matches=[], total=0, total_unread=0), 200
 
     matched_user_ids = [m.id for m in matched_users]
     convo_map = {
@@ -1060,6 +1051,25 @@ def get_matches():
             )
         ).scalars().all()
     }
+    conversation_ids = list(convo_map.values())
+    unread_count_map = {}
+
+    if conversation_ids:
+        unread_count_map = {
+            sender_id: unread_count
+            for sender_id, unread_count in db.session.query(
+                message.sender_id,
+                db.func.count(message.id)
+            )
+            .filter(
+                message.conversation_id.in_(conversation_ids),
+                message.sender_id != current_user.id,
+                message.is_read == False
+            )
+            .group_by(message.sender_id)
+            .all()
+        }
+    total_unread = sum(unread_count_map.values())
 
     return jsonify(
         matches=[
@@ -1073,20 +1083,22 @@ def get_matches():
                 "age": calculate_age(m.dob) if m.dob else None,
                 "gender": m.gender,
                 "description": m.description,
-                "bio": m.description or "",
-                "location": m.location_name or "",
-                "photo": m.photo_url or url_for('static', filename='default.jpg'),
+                "bio": m.description,
+                "location": m.location_name,
+                "photo": display_photo_url(m.photo_url),
                 "match_id": m.match_id,
-                "matchScore": m.match_score or 100,
+                "matchScore": m.match_score,
                 "matched_at": m.matched_at.strftime('%Y-%m-%d'),
                 "active": "Matched",
                 "avatarBg": "linear-gradient(135deg, #C0395A, #E8563A)",
                 "interests": [],
-                "conversation_id": convo_map.get(m.id)
+                "conversation_id": convo_map.get(m.id),
+                "unread_count": unread_count_map.get(m.id, 0)
             }
             for m in matched_users
         ],
-        total=len(matched_users)
+        total=len(matched_users),
+        total_unread=total_unread
     ), 200
 
  
@@ -1259,7 +1271,7 @@ def get_favourites():
                 "last_name": row.last_name,
                 "age": calculate_age(row.dob) if row.dob else None,
                 "gender": row.gender,
-                "photo": row.photo_url or url_for('static', filename='default.jpg'),
+                "photo": display_photo_url(row.photo_url),
                 "favourited_at": row.favorited_at.strftime('%Y-%m-%d %H:%M:%S')
             }
             for row in rows

@@ -34,10 +34,10 @@
           <div class="dd-stack-card dd-stack-card-1">
               <div class="dd-stack-avatar"><i class="bi bi-person-circle"></i></div>
             <div>
-              <p class="dd-stack-name">Your next match</p>
-              <p class="dd-stack-loc">📍 To Be Updated</p>
+              <p class="dd-stack-name">Find Your Next Match</p>
+              <p class="dd-stack-loc">Love is in the Air</p>
             </div>
-            <span class="dd-stack-pct">??%</span>
+            <span class="dd-stack-pct">{{ remainingMatches }}</span>
           </div>
         </div>
       </div>
@@ -194,14 +194,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getToken } from "@/services/auth";
+let dashboardStatsPoller = null
+
 onMounted(async () => {
     await fetchUserProfile();
     await getPotentialMatches();
     await fetchMatchCount();
-// now to fetch the potential matches we will run the potential matches API to get the list of potential matches and store it in the potentialMatches ref. we will also calculate the match score for each potential match based on the user's profile and the potential match's profile, and store that in the match object as well. for simplicity, we will just calculate a random match score for now, but in a real application you would use a more sophisticated algorithm to calculate the match score based on factors like shared interests, location proximity, etc.
+    dashboardStatsPoller = setInterval(fetchMatchCount, 1500);
+// now to fetch the potential matches we will run the potential matches API to get the list of potential matches and store it in the potentialMatches ref. we will also calculate the match score for each potential match based on the user's profile and the potential match's profile, and store that in the match object as well. for simplicity, we will just calculate a random match score for now, but in a real application you would use a more sophisticated algorithm to calculate the match score based on factors like shared hobbies, location proximity, etc.
+});
+
+onUnmounted(() => {
+  if (dashboardStatsPoller) clearInterval(dashboardStatsPoller);
 });
 async function fetchUserProfile() {
   try {
@@ -387,7 +394,11 @@ async function fetchMatchCount() {
     if (!response.ok) return;
 
     const data = await response.json();
-    matchCount.value = data.total || data.matches?.length || 0;
+    const matches = data.matches || [];
+    matchCount.value = data.total || matches.length || 0;
+    messageCount.value = data.total_unread ?? matches.reduce((total, match) => {
+      return total + (Number(match.unread_count) || 0);
+    }, 0);
   } catch (err) {
     console.error('Failed to fetch match count:', err);
   }
@@ -551,17 +562,17 @@ async function toggleFavorite(match) {
 
 /* Stacked cards visual */
 .dd-welcome-right { align-items: center; justify-content: center; }
-.dd-welcome-card-stack { position: relative; width: 210px; height: 90px; }
+.dd-welcome-card-stack { position: relative; width: 240px; height: 90px; }
 .dd-stack-card {
   position: absolute; border-radius: 14px;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.2);
 }
-.dd-stack-card-3 { width: 170px; height: 70px; top: 14px; left: 20px; transform: rotate(-6deg); }
-.dd-stack-card-2 { width: 185px; height: 75px; top: 8px; left: 12px; transform: rotate(-2deg); }
+.dd-stack-card-3 { width: 200px; height: 70px; top: 14px; left: 20px; transform: rotate(-6deg); }
+.dd-stack-card-2 { width: 215px; height: 75px; top: 8px; left: 12px; transform: rotate(-2deg); }
 .dd-stack-card-1 {
-  width: 200px; height: 80px; top: 0; left: 0;
+  width: 230px; height: 80px; top: 0; left: 0;
   background: rgba(255,255,255,0.22);
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0 1rem;
@@ -570,7 +581,7 @@ async function toggleFavorite(match) {
   font-size: 1.6rem;
   color: rgba(255,255,255,0.85);
   }
-.dd-stack-name { font-size: 0.84rem; font-weight: 700; color: #fff; margin: 0; }
+.dd-stack-name { font-size: 0.82rem; font-weight: 700; color: #fff; margin: 0; line-height: 1.2; }
 .dd-stack-loc  { font-size: 0.72rem; color: rgba(255,255,255,0.65); margin: 0; }
 .dd-stack-pct  {
   margin-left: auto; font-size: 0.75rem; font-weight: 700;

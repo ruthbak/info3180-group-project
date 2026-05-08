@@ -45,10 +45,13 @@
         <p class="dd-profile-bio">{{ profile.bio }}</p>
 
         <div class="dd-profile-actions">
-          <RouterLink to="/messages" class="btn dd-btn-primary">
+          <RouterLink v-if="isOwnProfile" to="/profile/edit" class="btn dd-btn-primary">
+            <i class="bi bi-pencil-square me-2"></i>Edit Profile
+          </RouterLink>
+          <RouterLink v-else to="/messages" class="btn dd-btn-primary">
             <i class="bi bi-chat-heart-fill me-2"></i>Chat
           </RouterLink>
-          <button class="btn dd-btn-outline" @click="toggleLike">
+          <button v-if="!isOwnProfile" class="btn dd-btn-outline" @click="toggleLike">
             <i :class="liked ? 'bi bi-heart-fill' : 'bi bi-heart'" class="me-2"></i>
             {{ liked ? 'Liked' : 'Like' }}
           </button>
@@ -59,7 +62,7 @@
     <!-- BODY: Bootstrap row so it plays nice with the existing grid -->
     <div class="row g-4 mt-2">
 
-      <!-- LEFT: About + Interests -->
+      <!-- LEFT: About + Hobbies -->
       <div class="col-12 col-lg-8">
         <div class="dd-body-col">
 
@@ -72,7 +75,7 @@
 
           <div class="dd-profile-card">
             <h5 class="dd-card-title">
-              <i class="bi bi-lightning-charge-fill dd-title-icon"></i> Interests
+              <i class="bi bi-lightning-charge-fill dd-title-icon"></i> Hobbies
             </h5>
             <div class="dd-interest-wrap">
               <span
@@ -81,7 +84,7 @@
                 :key="interest"
               >{{ interest }}</span>
               <span v-if="!profile.interests?.length" class="dd-empty-hint">
-                No interests listed yet.
+                No hobbies listed yet.
               </span>
             </div>
           </div>
@@ -129,13 +132,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getToken } from '@/services/auth'
 
 const error = ref('')
 const liked = ref(false)
 const route = useRoute()
+const currentUsername = ref('')
+
+const isOwnProfile = computed(() => (
+  currentUsername.value &&
+  profile.value.username &&
+  currentUsername.value === profile.value.username
+))
 
 const profile = ref({
   firstName:        'Sophia',
@@ -219,6 +229,14 @@ async function toggleLike() {
 onMounted(async () => {
   try {
     const token = getToken()
+    const userResponse = await fetch('/api/v1/user/', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const userData = await parseResponse(userResponse)
+    if (userResponse.ok) currentUsername.value = userData.user?.username || ''
+
     const response = await fetch(`/api/v1/profile/${route.params.username}`, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -445,7 +463,7 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* ── Interests ────────────────────────────────────────────── */
+/* ── Hobbies ────────────────────────────────────────────── */
 .dd-interest-wrap {
   display: flex !important;
   flex-direction: row !important;

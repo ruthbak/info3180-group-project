@@ -3,7 +3,7 @@
     <nav class="navbar navbar-expand-lg fixed-top dd-navbar">
       <div class="container-fluid">
         <RouterLink to="/" class="navbar-brand dd-brand">
-          <img src="@/assets/DriftDater Transparent.png" alt="DriftDater logo" class="dd-logo" />
+          <img :src="logoUrl" alt="DriftDater logo" class="dd-logo" />
           Drift<span>Dater</span>
         </RouterLink>       
       <button
@@ -36,6 +36,7 @@
 
 <script setup>
 import { RouterLink } from "vue-router";
+import logoUrl from "@/assets/DriftDater Transparent.png";
 </script>
 
 <style>

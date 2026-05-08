@@ -3,7 +3,7 @@
         <div class="container">
             <div class="dd-footer-inner">
                 <RouterLink to="/" class="navbar-brand dd-brand">
-                    <img src="@/assets/DriftDater Transparent.png" alt="DriftDater logo" class="dd-footer-logo" />
+                    <img :src="logoUrl" alt="DriftDater logo" class="dd-footer-logo" />
                     Drift<span>Dater</span>
                 </RouterLink>  
                 <ul class="dd-footer-links">
@@ -20,8 +20,8 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
 import { RouterLink } from "vue-router";
+import logoUrl from "@/assets/DriftDater Transparent.png";
 
 
 const year = (new Date).getFullYear();
