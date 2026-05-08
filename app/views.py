@@ -57,6 +57,10 @@ def token_required(f):
 
     return decorated
 
+@app.errorhandler(CSRFError)
+def handle_csrf_error(error):
+    return jsonify(errors=[error.description or "The form session expired. Please refresh and try again."]), 400
+
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")

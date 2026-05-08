@@ -207,13 +207,27 @@ const maxDob = computed(() => {
   return today.toISOString().split('T')[0]   // formats to YYYY-MM-DD
 })
 
-function getCsrfToken() {
-  fetch('/api/v1/csrf-token')
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(data);
-      csrf_token.value = data.csrf_token;
-    })
+async function parseResponse(response) {
+  const text = await response.text()
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { errors: [text], message: text }
+  }
+}
+
+async function getCsrfToken() {
+  const response = await fetch('/api/v1/csrf-token')
+  const data = await parseResponse(response)
+
+  if (!response.ok) {
+    errors.value = data.errors || [data.message || 'Could not prepare the registration form. Please refresh and try again.']
+    return
+  }
+
+  csrf_token.value = data.csrf_token
 }
 async function getLocationName(lat, lon) {
   const response = await fetch(
@@ -263,55 +277,60 @@ function validateDob() {
 }
 
 
-function registerForm(){
+async function registerForm(){
+  if (!validateDob()) {
+    errors.value = [dobError.value]
+    return
+  }
+
+  if (!csrf_token.value) {
+    await getCsrfToken()
+  }
+
+  if (!csrf_token.value) return
+
+  isLoading.value = true
+  errors.value = []
+  successMessage.value = ""
+
   let register_form = document.getElementById("register_form");
   let form_data = new FormData(register_form);
   form_data.append("latitude", latitude.value);
   form_data.append("longitude", longitude.value);
   form_data.append("location_name", location_name.value);
-  console.log("Form data:", Object.fromEntries(form_data.entries()));
-                  fetch("/api/v1/register",{
-                    method: "POST",
-                    body: form_data,
-                    headers: {
-                      "X-CSRFToken": csrf_token.value
-                    }
-                  })
-                  .then(function(response){
-                    if (!response.ok) {
-                      return response.text().then(text => {
-                        throw new Error(text || "request failed");
-                      });
-                    }
-                    return response.json();
-                  })
-                  .then(function (data){
-                    successMessage.value = data.message;
-                    console.log("Success:", data);
-                    errorMessage.value = "";
-                    email.value = "";
-                    username.value = "";
-                    firstname.value = "";
-                    lastname.value = "";
-                    dob.value = "";
-                    gender.value = "";
-                    lookingfor.value = "";
-                    password.value = "";
-                    window.location.href = "/login";
-                  })
-                  .catch(function(error){
-                    if (error.response && error.response.data.errors) {
+  try {
+    const response = await fetch("/api/v1/register", {
+      method: "POST",
+      body: form_data,
+      headers: {
+        "X-CSRFToken": csrf_token.value
+      }
+    })
+    const data = await parseResponse(response)
 
-        errors.value = error.response.data.errors
-
-    } else {
-         errorMessage.value = JSON.parse(error.message).errors;
-         errors.value = errorMessage.value || ["An error occurred during registration. Please try again."]
-
+    if (!response.ok) {
+      errors.value = data.errors || [data.message || "An error occurred during registration. Please try again."]
+      return
     }
-                    successMessage.value = "";
-                    console.error("Error:", error);
-                  });
+
+    successMessage.value = data.message;
+    errorMessage.value = "";
+    email.value = "";
+    username.value = "";
+    firstname.value = "";
+    lastname.value = "";
+    form.value.dob = "";
+    gender.value = "";
+    lookingfor.value = "";
+    password.value = "";
+    window.location.href = "/login";
+  } catch (error) {
+    errors.value = ["An error occurred during registration. Please try again."]
+    successMessage.value = "";
+    console.error("Error:", error);
+  } finally {
+    isLoading.value = false
+  }
 }
 
 </script>
