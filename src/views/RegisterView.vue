@@ -17,9 +17,14 @@
             </div>
 
             <!-- Error Alert -->
-            <div class="alert dd-alert-error" v-if="errorMessage">
-              {{ errorMessage }}
-            </div>
+            <div class="alert dd-alert-error" v-if="errors.length">
+  <ul class="mb-0" v-if="Array.isArray(errors)">
+    <li v-for="error in errors" :key="error">
+      {{ error }}
+    </li>
+  </ul>
+
+</div>
 
             <!-- Success Alert -->
             <div class="alert dd-alert-success" v-if="successMessage">
@@ -27,7 +32,7 @@
             </div>
 
             <!-- Form -->
-            <form @submit.prevent="handleRegister">
+            <form @submit.prevent="registerForm" id="register_form">
 
               <!-- Name Row -->
               <div class="row g-3 mb-3">
@@ -36,7 +41,8 @@
                   <input
                     type="text"
                     id="firstname"
-                    v-model="form.firstname"
+                    v-model="firstname"
+                    name="firstname"
                     class="form-control dd-input"
                     placeholder="First Name"
                   />
@@ -46,7 +52,8 @@
                   <input
                     type="text"
                     id="lastname"
-                    v-model="form.lastname"
+                    v-model="lastname"
+                    name="lastname"
                     class="form-control dd-input"
                     placeholder="Last Name"
                   />
@@ -59,7 +66,8 @@
                 <input
                   type="email"
                   id="email"
-                  v-model="form.email"
+                  v-model="email"
+                  name="email"
                   class="form-control dd-input"
                   placeholder="your@email.com"
                 />
@@ -71,7 +79,8 @@
                 <input
                   type="text"
                   id="username"
-                  v-model="form.username"
+                  v-model="username"
+                  name="username"
                   class="form-control dd-input"
                   placeholder="Choose a username"
                 />
@@ -83,7 +92,9 @@
                 <input
                   type="date"
                   id="dob"
+                  name="dob"
                   v-model="form.dob"
+                  :max="maxDob"
                   class="form-control dd-input"
                 />
               </div>
@@ -94,7 +105,8 @@
                   <label for="gender" class="dd-label">Gender</label>
                   <select
                     id="gender"
-                    v-model="form.gender"
+                    name="gender"
+                    v-model="gender"
                     class="form-select dd-input"
                   >
                     <option value="" disabled>Select gender</option>
@@ -106,7 +118,8 @@
                   <label for="lookingfor" class="dd-label">Looking For</label>
                   <select
                     id="lookingfor"
-                    v-model="form.lookingfor"
+                    name="lookingfor"
+                    v-model="lookingfor"
                     class="form-select dd-input"
                   >
                     <option value="" disabled>Select preference</option>
@@ -123,7 +136,8 @@
                 <input
                   type="password"
                   id="password"
-                  v-model="form.password"
+                  v-model="password"
+                  name="password"
                   class="form-control dd-input"
                   placeholder="Create a password (min. 12 characters)"
                 />
@@ -133,7 +147,7 @@
               </div>
 
               <!-- Submit -->
-              <button type="submit" class="btn dd-btn-submit w-100" :disabled="isLoading">
+              <button type="submit" class="btn dd-btn-submit w-100" :disabled="isLoading || !latitude || !longitude">
                 <span v-if="isLoading">
                   <span class="spinner-border spinner-border-sm me-2"></span>
                   Creating Account...
@@ -159,63 +173,147 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { ref, onMounted, computed } from "vue";
+onMounted(() => {
+  getCsrfToken();
+  getLocation();
+});
+let csrf_token = ref("");
+const locationName = ref("");
+const location_name = ref("");
+const latitude = ref(null)
+const longitude = ref(null)
+const locationError = ref("")
+const email = ref("");
+const username = ref("");
+const firstname = ref("");
+const lastname = ref("");
+const dob = ref("");
+const gender = ref("");
+const lookingfor = ref("");
+const password = ref("");
+const successMessage = ref("");
+const errorMessage = ref([]);
+const errors = ref([]);
+const isLoading     = ref(false);
 
-const router = useRouter()
+const form     = ref({ dob: '' })
+const dobError = ref('')
 
-// Form data — field names match Flask forms.py exactly
-const form = reactive({
-  firstname:  '',
-  lastname:   '',
-  email:      '',
-  username:   '',
-  dob:        '',
-  gender:     '',
-  lookingfor: '',
-  password:   ''
+// Recalculated as a computed property so it's always today minus 18 years
+const maxDob = computed(() => {
+  const today = new Date()
+  today.setFullYear(today.getFullYear() - 18)
+  return today.toISOString().split('T')[0]   // formats to YYYY-MM-DD
 })
 
-const errorMessage  = ref('')
-const successMessage = ref('')
-const isLoading     = ref(false)
-
-async function handleRegister() {
-  errorMessage.value  = ''
-  successMessage.value = ''
-  isLoading.value     = true
-
-  try {
-    // TODO: Uncomment when Flask backend is ready
-    // const response = await fetch('/api/auth/register', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     firstname:  form.firstname,
-    //     lastname:   form.lastname,
-    //     email:      form.email,
-    //     username:   form.username,
-    //     dob:        form.dob,
-    //     gender:     form.gender,
-    //     lookingfor: form.lookingfor,
-    //     password:   form.password
-    //   })
-    // })
-    // const data = await response.json()
-    // if (!response.ok) throw new Error(data.message || 'Registration failed')
-    // router.push({ name: 'login' })
-
-    // Temporary: simulate for frontend testing
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    successMessage.value = 'Account created successfully! Redirecting to login...'
-    setTimeout(() => router.push({ name: 'login' }), 2000)
-
-  } catch (err) {
-    errorMessage.value = err.message || 'Something went wrong. Please try again.'
-  } finally {
-    isLoading.value = false
-  }
+function getCsrfToken() {
+  fetch('/api/v1/csrf-token')
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data);
+      csrf_token.value = data.csrf_token;
+    })
 }
+async function getLocationName(lat, lon) {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+  )
+  const data = await response.json()
+
+
+  return data.address // full readable address
+}
+function getLocation() {
+  if (!navigator.geolocation) {
+    locationError.value = "Geolocation not supported"
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      latitude.value = position.coords.latitude
+      longitude.value = position.coords.longitude
+      locationError.value = ""
+      console.log("Location:", latitude.value, longitude.value)
+      const locationName = await getLocationName(latitude.value, longitude.value)
+      location_name.value = locationName.village || locationName.town || locationName.city || "Unknown";  
+      //console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
+    },
+    (error) => {
+      locationError.value = "Location permission denied"
+      console.error(error)
+    }
+  )
+}
+
+function validateDob() {
+  if (!form.value.dob) {
+    dobError.value = "Date of birth is required"
+    return false
+  }
+  const selected = new Date(form.value.dob)
+  const cutoff   = new Date(maxDob.value)
+  if (selected > cutoff) {
+    dobError.value = "You must be at least 18 years old to register"
+    return false
+  }
+  dobError.value = ''
+  return true
+}
+
+
+function registerForm(){
+  let register_form = document.getElementById("register_form");
+  let form_data = new FormData(register_form);
+  form_data.append("latitude", latitude.value);
+  form_data.append("longitude", longitude.value);
+  form_data.append("location_name", location_name.value);
+  console.log("Form data:", Object.fromEntries(form_data.entries()));
+                  fetch("/api/v1/register",{
+                    method: "POST",
+                    body: form_data,
+                    headers: {
+                      "X-CSRFToken": csrf_token.value
+                    }
+                  })
+                  .then(function(response){
+                    if (!response.ok) {
+                      return response.text().then(text => {
+                        throw new Error(text || "request failed");
+                      });
+                    }
+                    return response.json();
+                  })
+                  .then(function (data){
+                    successMessage.value = data.message;
+                    console.log("Success:", data);
+                    errorMessage.value = "";
+                    email.value = "";
+                    username.value = "";
+                    firstname.value = "";
+                    lastname.value = "";
+                    dob.value = "";
+                    gender.value = "";
+                    lookingfor.value = "";
+                    password.value = "";
+                    window.location.href = "/login";
+                  })
+                  .catch(function(error){
+                    if (error.response && error.response.data.errors) {
+
+        errors.value = error.response.data.errors
+
+    } else {
+         errorMessage.value = JSON.parse(error.message).errors;
+         errors.value = errorMessage.value || ["An error occurred during registration. Please try again."]
+
+    }
+                    successMessage.value = "";
+                    console.error("Error:", error);
+                  });
+}
+
 </script>
 
 <style scoped>
