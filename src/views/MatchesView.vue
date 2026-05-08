@@ -99,10 +99,13 @@
               Message
             </RouterLink>
 
-            <button class="btn dd-btn-view">
+            <RouterLink
+              :to="`/profile/${match.username}`"
+              class="btn dd-btn-view"
+            >
               <i class="bi bi-person-heart me-1"></i>
               View Profile
-            </button>
+            </RouterLink>
 
           </div>
 
@@ -117,13 +120,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getToken } from '@/services/auth'
 
 const matches = ref([])
 
 onMounted(async () => {
   try {
+    const token = getToken()
 
-    const response = await fetch('/api/matches')
+    const response = await fetch('/api/v1/matches', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
 
     if (!response.ok) {
       throw new Error('Failed to fetch matches')
@@ -131,7 +140,20 @@ onMounted(async () => {
 
     const data = await response.json()
 
-    matches.value = data
+    matches.value = (data.matches || []).map(match => ({
+      id: match.match_id || match.user_id,
+      user_id: match.user_id,
+      username: match.username,
+      name: match.name || `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.username,
+      age: match.age,
+      location: match.location || '',
+      active: match.active || `Matched ${match.matched_at || ''}`.trim(),
+      bio: match.bio || match.description || '',
+      interests: match.interests || [],
+      matchScore: match.matchScore || match.match_score || 100,
+      avatarBg: match.avatarBg || 'linear-gradient(135deg, #C0395A, #E8563A)',
+      conversation_id: match.conversation_id
+    }))
 
   } catch (err) {
     console.error('Failed to load matches:', err)
@@ -247,6 +269,12 @@ onMounted(async () => {
   color: var(--dd-rose);
 }
 
+.dd-empty-title.mt-3{
+  color : var(--dd-dark);
+}
+.dd-empty-sub{
+  color : var(--dd-dark);
+}
 /* MOBILE */
 @media (max-width: 576px) {
   .dd-match-actions {
@@ -256,5 +284,6 @@ onMounted(async () => {
   .dd-match-actions .btn {
     width: 100%;
   }
+
 }
 </style>

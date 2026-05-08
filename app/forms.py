@@ -33,7 +33,7 @@ class ProfileForm(FlaskForm):
     interested_in = StringField('Interested In',validators=[Optional(), Length(min=4,max=6), regexp('^[A-Za-z]+$', 0, 'Interested in must contain only letters')])
     min_age = IntegerField('Minimum Age',validators=[Optional(),NumberRange(min=18, max=100, message='Minimum age must be between 18 and 100')])
     max_age = IntegerField('Maximum Age',validators=[Optional(),NumberRange(min=18, max=100, message='Maximum age must be between 18 and 100')])
-    photo = FileField('Profile Picture', validators=[Optional(),FileAllowed(['jpg', 'png'], 'Images only!')])
+    photo = FileField('Profile Picture', validators=[Optional(),FileAllowed(['jpg', 'jpeg', 'png'], 'Images only!')])
     max_distance = IntegerField('Maximum Distance',validators=[Optional(),NumberRange(min=1, max=200000, message='Distance must be between 1 and 200000')])
     submit = SubmitField('Update Profile')
 

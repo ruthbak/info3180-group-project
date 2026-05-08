@@ -130,7 +130,7 @@ class match(db.Model):
     user2_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     matched_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     match_score = db.Column(db.Integer, index=True)
-    status = db.Column(db.String(16), index=True),
+    status = db.Column(db.String(16), index=True)
 
     __table_args__ = (db.UniqueConstraint('user1_id','user2_id',name='unique_match'),)
 

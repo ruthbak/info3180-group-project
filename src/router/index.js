@@ -53,9 +53,9 @@ const router = createRouter({
           component: () => import('../views/ProfileEditView.vue')
         },
         {
-          path: 'reports',
-          name: 'reports',
-          component: () => import('../views/ReportsView.vue')
+          path: 'profile/:username',
+          name: 'profile-view',
+          component: () => import('../views/ProfileView.vue')
         }
       ]
     }
@@ -67,8 +67,8 @@ router.beforeEach((to, from, next) => {
     "dashboard",
     "matches",
     "messages",
-    "profile-edit",
-    "reports"
+    "profile-view",
+    "profile-edit"
   ]
   const requiresAuth = protectedRoutes.includes(to.name)
 

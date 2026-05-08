@@ -93,7 +93,8 @@
                   type="date"
                   id="dob"
                   name="dob"
-                  v-model="dob"
+                  v-model="form.dob"
+                  :max="maxDob"
                   class="form-control dd-input"
                 />
               </div>
@@ -172,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 onMounted(() => {
   getCsrfToken();
   getLocation();
@@ -196,10 +197,21 @@ const errorMessage = ref([]);
 const errors = ref([]);
 const isLoading     = ref(false);
 
+const form     = ref({ dob: '' })
+const dobError = ref('')
+
+// Recalculated as a computed property so it's always today minus 18 years
+const maxDob = computed(() => {
+  const today = new Date()
+  today.setFullYear(today.getFullYear() - 18)
+  return today.toISOString().split('T')[0]   // formats to YYYY-MM-DD
+})
+
 function getCsrfToken() {
   fetch('/api/v1/csrf-token')
     .then((response) => response.json())
     .then((data) => {
+      console.log(data);
       csrf_token.value = data.csrf_token;
     })
 }
@@ -223,15 +235,31 @@ function getLocation() {
       latitude.value = position.coords.latitude
       longitude.value = position.coords.longitude
       locationError.value = ""
+      console.log("Location:", latitude.value, longitude.value)
       const locationName = await getLocationName(latitude.value, longitude.value)
       location_name.value = locationName.village || locationName.town || locationName.city || "Unknown";  
-
+      //console.log("Location name:", locationName.village || locationName.town || locationName.city || "Unknown")
     },
     (error) => {
       locationError.value = "Location permission denied"
-
+      console.error(error)
     }
   )
+}
+
+function validateDob() {
+  if (!form.value.dob) {
+    dobError.value = "Date of birth is required"
+    return false
+  }
+  const selected = new Date(form.value.dob)
+  const cutoff   = new Date(maxDob.value)
+  if (selected > cutoff) {
+    dobError.value = "You must be at least 18 years old to register"
+    return false
+  }
+  dobError.value = ''
+  return true
 }
 
 

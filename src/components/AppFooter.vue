@@ -3,14 +3,13 @@
         <div class="container">
             <div class="dd-footer-inner">
                 <RouterLink to="/" class="navbar-brand dd-brand">
-                    <img src="@/assets/logo.svg" alt="DriftDater logo" class="dd-logo" />
+                    <img src="@/assets/DriftDater Transparent.png" alt="DriftDater logo" class="dd-footer-logo" />
                     Drift<span>Dater</span>
                 </RouterLink>  
                 <ul class="dd-footer-links">
                     <li><RouterLink to="/">Home</RouterLink></li>
                     <li><RouterLink to="/login">Login</RouterLink></li>
                     <li><RouterLink to="/register">Register</RouterLink></li>
-                    <li><RouterLink to="/reports">View Reports</RouterLink></li>
                 </ul>
                 <p class="dd-footer-copy">
                     Copyright &copy; {{ year }} DriftDater. Made with ♥
@@ -51,6 +50,13 @@ const year = (new Date).getFullYear();
 .dd-footer-brand span {
   font-style: italic;
   color: #E8617F;
+}
+.dd-footer-logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin-right: 0.3rem;
+  vertical-align: middle;
 }
 .dd-footer-links {
   list-style: none;

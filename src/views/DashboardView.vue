@@ -69,14 +69,14 @@
     <!-- Filter Bar -->
     <div class="dd-filter-bar mb-4">
       <div class="row g-2 align-items-center">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <div class="dd-filter-input-wrap">
             <i class="bi bi-search dd-filter-icon"></i>
             <input type="text" v-model="filters.search"
-              class="dd-filter-field" placeholder="Search by name or bio..." />
+              class="dd-filter-field" placeholder="Name..." />
           </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
           <select v-model="filters.ageRange" class="dd-filter-select">
             <option value="">All Ages</option>
             <option value="18-24">18 – 24</option>
@@ -85,16 +85,37 @@
             <option value="40+">40+</option>
           </select>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
           <div class="dd-filter-input-wrap">
             <i class="bi bi-geo-alt dd-filter-icon"></i>
             <input type="text" v-model="filters.location"
               class="dd-filter-field" placeholder="Location..." />
           </div>
         </div>
-        <div class="col-12 col-md-2">
+        <div class="col-6 col-md-2">
+          <div class="dd-filter-input-wrap">
+            <i class="bi bi-stars dd-filter-icon"></i>
+            <input type="text" v-model="filters.interest"
+              class="dd-filter-field" placeholder="Hobby..." />
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <select v-model="filters.sort" class="dd-filter-select">
+            <option value="most_similar">Most Similar</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name</option>
+            <option value="age_low">Age Low</option>
+            <option value="age_high">Age High</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-1">
+          <button class="btn dd-btn-reset w-100" @click="searchProfiles">
+            <i class="bi bi-funnel"></i>
+          </button>
+        </div>
+        <div class="col-6 col-md-12 col-lg-1">
           <button class="btn dd-btn-reset w-100" @click="resetFilters">
-            <i class="bi bi-x-circle me-1"></i>Reset
+            <i class="bi bi-x-circle"></i>
           </button>
         </div>
       </div>
@@ -139,6 +160,13 @@
 
         <!-- Actions -->
         <div class="dd-mc-actions" v-if="match.status === 'pending'">
+          <RouterLink :to="`/profile/${match.username}`" class="btn dd-btn-view-profile">
+            <i class="bi bi-person-heart me-1"></i>View
+          </RouterLink>
+          <button class="btn dd-btn-fav" @click="toggleFavorite(match)">
+            <i class="bi me-1" :class="match.isFavorite ? 'bi-bookmark-fill' : 'bi-bookmark'"></i>
+            {{ match.isFavorite ? 'Saved' : 'Save' }}
+          </button>
           <button class="btn dd-btn-like" @click="likeProfile(match)">
             <i class="bi bi-heart-fill me-1"></i>Like
           </button>
@@ -172,6 +200,7 @@ import { getToken } from "@/services/auth";
 onMounted(async () => {
     await fetchUserProfile();
     await getPotentialMatches();
+    await fetchMatchCount();
 // now to fetch the potential matches we will run the potential matches API to get the list of potential matches and store it in the potentialMatches ref. we will also calculate the match score for each potential match based on the user's profile and the potential match's profile, and store that in the match object as well. for simplicity, we will just calculate a random match score for now, but in a real application you would use a more sophisticated algorithm to calculate the match score based on factors like shared interests, location proximity, etc.
 });
 async function fetchUserProfile() {
@@ -199,6 +228,7 @@ async function fetchUserProfile() {
 
   } catch (err) {
     error.value = err.message;
+    console.log(error.value)
 
   }
   }
@@ -229,8 +259,9 @@ async function getPotentialMatches() {
     }
 
     const data = await response.json();
+    const matches = data.matches || data.match_list || [];
 
-    potentialMatches.value = data.matches;
+    potentialMatches.value = matches.map(normalizeMatch);
 
     console.log("Fetched potential matches:", potentialMatches.value);
 
@@ -276,20 +307,45 @@ const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'nume
 
 const potentialMatches = ref([])
 
+function normalizeMatch(match) {
+  return {
+    id: match.id || match.user_id,
+    user_id: match.user_id,
+    username: match.username,
+    name: match.name || `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.username,
+    age: match.age,
+    bio: match.bio || match.description || '',
+    location: match.location || '',
+    lookingFor: match.lookingFor || (Array.isArray(match.looking_for) ? match.looking_for.join(', ') : match.looking_for) || '',
+    interests: match.interests || match.common_hobbies || [],
+    matchScore: match.matchScore || match.match_score || 0,
+    status: match.status || 'pending',
+    isFavorite: Boolean(match.isFavorite),
+    avatarBg: match.avatarBg || 'linear-gradient(135deg, #C0395A, #E8563A)'
+  };
+}
 
-const filters = reactive({ search: '', ageRange: '', location: '' })
-const resetFilters = () => { filters.search = ''; filters.ageRange = ''; filters.location = '' }
+const filters = reactive({ search: '', ageRange: '', location: '', interest: '', sort: 'most_similar' })
+const resetFilters = async () => {
+  filters.search = '';
+  filters.ageRange = '';
+  filters.location = '';
+  filters.interest = '';
+  filters.sort = 'most_similar';
+  await getPotentialMatches();
+}
 
 const filteredMatches = computed(() => potentialMatches.value.filter(m => {
   const s = filters.search.toLowerCase()
   const okSearch   = !s || m.name.toLowerCase().includes(s) || m.bio.toLowerCase().includes(s)
   const okLocation = !filters.location || m.location.toLowerCase().includes(filters.location.toLowerCase())
+  const okInterest = !filters.interest || m.interests.some(i => i.toLowerCase().includes(filters.interest.toLowerCase()))
   let okAge = true
   if (filters.ageRange === '18-24') okAge = m.age >= 18 && m.age <= 24
   else if (filters.ageRange === '25-30') okAge = m.age >= 25 && m.age <= 30
   else if (filters.ageRange === '31-40') okAge = m.age >= 31 && m.age <= 40
   else if (filters.ageRange === '40+') okAge = m.age > 40
-  return okSearch && okLocation && okAge
+  return okSearch && okLocation && okInterest && okAge
 }))
 
 const remainingMatches = computed(() => potentialMatches.value.filter(m => m.status === 'pending').length)
@@ -299,11 +355,152 @@ const showToast = ref(false)
 const toastName = ref('')
 function fireToast(name) { toastName.value = name; showToast.value = true; setTimeout(() => showToast.value = false, 3000) }
 
-function likeProfile(match) {
-  match.status = 'liked'
-  if (Math.random() > 0.5) setTimeout(() => fireToast(match.name), 500)
+async function parseResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
 }
-function passProfile(match) { match.status = 'passed' }
+
+async function getCsrfToken() {
+  const response = await fetch('/api/v1/csrf-token');
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch CSRF token');
+  }
+
+  return data.csrf_token;
+}
+
+async function fetchMatchCount() {
+  try {
+    const token = getToken();
+    const response = await fetch('/api/v1/matches', {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    matchCount.value = data.total || data.matches?.length || 0;
+  } catch (err) {
+    console.error('Failed to fetch match count:', err);
+  }
+}
+
+function getAgeParams() {
+  if (filters.ageRange === '18-24') return { min_age: 18, max_age: 24 };
+  if (filters.ageRange === '25-30') return { min_age: 25, max_age: 30 };
+  if (filters.ageRange === '31-40') return { min_age: 31, max_age: 40 };
+  if (filters.ageRange === '40+') return { min_age: 41 };
+  return {};
+}
+
+async function searchProfiles() {
+  try {
+    const token = getToken();
+    const params = new URLSearchParams();
+    const ageParams = getAgeParams();
+
+    if (filters.search) params.set('name', filters.search);
+    if (filters.location) params.set('location', filters.location);
+    if (filters.interest) params.set('interest', filters.interest);
+    if (filters.sort) params.set('sort', filters.sort);
+    if (ageParams.min_age) params.set('min_age', ageParams.min_age);
+    if (ageParams.max_age) params.set('max_age', ageParams.max_age);
+
+    const response = await fetch(`/api/v1/search?${params.toString()}`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    const data = await parseResponse(response);
+    if (!response.ok) throw new Error(data.message || 'Failed to search profiles');
+
+    potentialMatches.value = (data.matches || data.users || []).map(normalizeMatch);
+    errors.value = '';
+  } catch (err) {
+    errors.value = err.message;
+    console.error('Failed to search profiles:', err);
+  }
+}
+
+async function likeProfile(match) {
+  try {
+    const token = getToken();
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`/api/v1/likes/${match.username}`, {
+      method: 'POST',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken
+      },
+      body: JSON.stringify({ match_score: match.matchScore })
+    });
+
+    const data = await parseResponse(response);
+    if (!response.ok) throw new Error(data.message || 'Failed to like profile');
+
+    match.status = 'liked';
+    if (data.matched) {
+      fireToast(match.name);
+      matchCount.value += 1;
+    }
+  } catch (err) {
+    errors.value = err.message;
+    console.error('Failed to like profile:', err);
+  }
+}
+
+async function passProfile(match) {
+  try {
+    const token = getToken();
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`/api/v1/pass/${match.username}`, {
+      method: 'POST',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "X-CSRFToken": csrfToken
+      }
+    });
+
+    const data = await parseResponse(response);
+    if (!response.ok) throw new Error(data.message || 'Failed to pass profile');
+
+    match.status = 'passed';
+  } catch (err) {
+    errors.value = err.message;
+    console.error('Failed to pass profile:', err);
+  }
+}
+
+async function toggleFavorite(match) {
+  try {
+    const token = getToken();
+    const csrfToken = await getCsrfToken();
+    const response = await fetch(`/api/v1/favourites/${match.username}`, {
+      method: match.isFavorite ? 'DELETE' : 'POST',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "X-CSRFToken": csrfToken
+      }
+    });
+
+    const data = await parseResponse(response);
+    if (!response.ok && response.status !== 409) {
+      throw new Error(data.message || 'Failed to update favourite');
+    }
+
+    match.isFavorite = response.status === 409 ? true : !match.isFavorite;
+  } catch (err) {
+    errors.value = err.message;
+    console.error('Failed to update favourite:', err);
+  }
+}
 </script>
 
 <style scoped>
@@ -520,6 +717,23 @@ function passProfile(match) { match.status = 'passed' }
   transition: background 0.18s; white-space: nowrap;
 }
 .dd-btn-pass:hover { background: #e8d8d0; }
+
+.dd-btn-view-profile {
+  background: #fff; color: #C0395A;
+  border: 1.5px solid rgba(192,57,90,0.14);
+  border-radius: 100px;
+  font-size: 0.82rem; font-weight: 600; padding: 0.42rem 1.1rem;
+  transition: background 0.18s; white-space: nowrap;
+}
+.dd-btn-view-profile:hover { background: #FDEEF2; color: #C0395A; }
+
+.dd-btn-fav {
+  background: #FFF6EE; color: #D4770A;
+  border: none; border-radius: 100px;
+  font-size: 0.82rem; font-weight: 600; padding: 0.42rem 1.1rem;
+  transition: background 0.18s; white-space: nowrap;
+}
+.dd-btn-fav:hover { background: #FFE6D2; color: #B95F05; }
 
 .dd-mc-status {
   font-size: 0.8rem; font-weight: 600;

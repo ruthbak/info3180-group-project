@@ -13,13 +13,8 @@
         v-for="chat in conversations"
         :key="chat.id"
         class="dd-conv-item"
-        :class="{ active: activeChat.id === chat.id }"
+        :class="{ active: activeChat?.id === chat.id }"
         @click="openChat(chat)"
-
-        function openChat(chat) {
-          activeChat.value = chat
-          chat.unread = 0
-        }
       >
         <div class="dd-conv-avatar">
           {{ chat.name.charAt(0) }}
@@ -124,47 +119,165 @@
 
     </section>
 
+    <section v-else class="dd-chat-window dd-chat-empty">
+      <p class="mb-0">Select a match to start chatting.</p>
+    </section>
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { getToken } from '@/services/auth'
 
 const conversations = ref([])
-
 const activeChat = ref(null)
+const newMessage = ref('')
+let messagePoller = null
+
+async function parseResponse(response) {
+  const text = await response.text()
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { message: text }
+  }
+}
+
+async function getCsrfToken() {
+  const response = await fetch('/api/v1/csrf-token')
+  const data = await parseResponse(response)
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch CSRF token')
+  }
+
+  return data.csrf_token
+}
+
 onMounted(async () => {
   try {
-
-    const response = await fetch('/api/chats')
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch chats')
-    }
-
-    const data = await response.json()
-
-    conversations.value = data
-
-    if (data.length > 0) {
-      activeChat.value = data[0]
-    }
-
+    await loadConversations()
+    messagePoller = setInterval(refreshActiveChat, 1500)
   } catch (err) {
     console.error('Failed to load chats:', err)
   }
 })
 
-function sendMessage() {
-  if (!newMessage.value.trim()) return
+onUnmounted(() => {
+  if (messagePoller) clearInterval(messagePoller)
+})
+
+async function loadConversations() {
+  const token = getToken()
+
+  const response = await fetch('/api/v1/messageable', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch chats')
+  }
+
+  const data = await response.json()
+
+  conversations.value = (data.matches || []).map(match => ({
+    id: match.conversation_id || `match-${match.user_id}`,
+    user_id: match.user_id,
+    username: match.username,
+    name: match.name || `${match.first_name || ''} ${match.last_name || ''}`.trim() || match.username,
+    conversation_id: match.conversation_id,
+    lastMessage: 'Start a conversation',
+    time: match.matched_at || '',
+    unread: 0,
+    messages: []
+  }))
+
+  if (conversations.value.length > 0) {
+    await openChat(conversations.value[0])
+  }
+}
+
+async function openChat(chat) {
+  activeChat.value = chat
+  chat.unread = 0
+  await fetchMessages(chat)
+}
+
+async function fetchMessages(chat) {
+  if (!chat.conversation_id) {
+    chat.messages = []
+    return
+  }
+
+  const token = getToken()
+  const response = await fetch(`/api/v1/messages/${chat.conversation_id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch messages')
+  }
+
+  const data = await response.json()
+  chat.messages = (data.messages || []).map(msg => ({
+    id: msg.message_id,
+    text: msg.message_text,
+    mine: msg.sender !== chat.username
+  }))
+
+  if (chat.messages.length > 0) {
+    chat.lastMessage = chat.messages[chat.messages.length - 1].text
+  }
+}
+
+async function refreshActiveChat() {
+  if (!activeChat.value?.conversation_id) return
+
+  try {
+    await fetchMessages(activeChat.value)
+  } catch (err) {
+    console.error('Failed to refresh messages:', err)
+  }
+}
+
+async function sendMessage() {
+  if (!activeChat.value || !newMessage.value.trim()) return
+
+  const messageText = newMessage.value.trim()
+  const token = getToken()
+  const csrfToken = await getCsrfToken()
+
+  const response = await fetch(`/api/v1/messages/${activeChat.value.username}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken
+    },
+    body: JSON.stringify({ message_text: messageText })
+  })
+
+  const data = await parseResponse(response)
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to send message')
+  }
 
   activeChat.value.messages.push({
-    id: Date.now(),
-    text: newMessage.value,
+    id: data.data.message_id,
+    text: data.data.message_text,
     mine: true
   })
 
-  activeChat.value.lastMessage = newMessage.value
+  activeChat.value.conversation_id = data.data.conversation_id
+  activeChat.value.id = data.data.conversation_id
+  activeChat.value.lastMessage = messageText
   newMessage.value = ''
 }
 </script>
@@ -240,6 +353,12 @@ function sendMessage() {
 .dd-chat-header {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid rgba(192,57,90,0.08);
+}
+
+.dd-chat-empty {
+  align-items: center;
+  justify-content: center;
+  color: #9E6373;
 }
 
 .dd-chat-body {
@@ -319,5 +438,11 @@ function sendMessage() {
 .dd-unread-time {
   color: var(--dd-rose);
   font-weight: 700;
+}
+.dd-empty{
+  color: var(--dd-dark);
+}
+.mb-0{
+  color: var(--dd-dark)
 }
 </style>

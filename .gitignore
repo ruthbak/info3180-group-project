@@ -13,6 +13,9 @@ venv/
 # nodejs
 node_modules
 
+# runtime uploads
+uploads/
+
 # PyCharm
 .idea
 

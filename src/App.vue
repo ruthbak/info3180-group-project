@@ -6,7 +6,7 @@ import AppFooter from "@/components/AppFooter.vue";
 
 const route = useRoute()
 
-const dashboardRoutes = ['dashboard', 'matches', 'messages', 'profile-edit', 'reports']
+const dashboardRoutes = ['dashboard', 'matches', 'messages', 'profile-view', 'profile-edit']
 const showPublicLayout = computed(() => !dashboardRoutes.includes(route.name))
 </script>
 
