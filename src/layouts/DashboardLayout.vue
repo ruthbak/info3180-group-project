@@ -55,10 +55,6 @@
           <span class="dd-nav-icon"><i class="bi bi-person"></i></span>
           <span class="dd-nav-label" v-if="!isCollapsed">My Profile</span>
         </RouterLink>
-        <RouterLink to="/reports" class="dd-nav-link" :title="isCollapsed ? 'Reports' : ''">
-          <span class="dd-nav-icon"><i class="bi bi-bar-chart"></i></span>
-          <span class="dd-nav-label" v-if="!isCollapsed">Reports</span>
-        </RouterLink>
       </nav>
 
       <!-- Logout -->
